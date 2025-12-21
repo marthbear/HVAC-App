@@ -103,6 +103,21 @@ export default function AdminLayout() {
           ),
         }}
       />
+
+      {/* Hide nested routes from tab bar */}
+      <Tabs.Screen
+        name="inbox/compose-message"
+        options={{
+          href: null, // Hides from tab bar
+        }}
+      />
+
+      <Tabs.Screen
+        name="contacts/new-contact"
+        options={{
+          href: null, // Hides from tab bar
+        }}
+      />
     </Tabs>
   );
 }
