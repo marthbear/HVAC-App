@@ -53,7 +53,7 @@ export default function AdminLayout() {
       />
 
       <Tabs.Screen
-        name="inbox"
+        name="inbox/index"
         options={{
           title: "Inbox",
           tabBarIcon: ({ color, size }) => (
@@ -63,7 +63,7 @@ export default function AdminLayout() {
       />
 
       <Tabs.Screen
-        name="contacts"
+        name="contacts/index"
         options={{
           title: "Contacts",
           tabBarIcon: ({ color, size }) => (
