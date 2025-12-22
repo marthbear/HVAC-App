@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
-import { Picker } from "@react-native-picker/picker";
 import { useAuth } from "../../src/auth/AuthContext";
 
 /**
@@ -119,18 +118,57 @@ export default function SignupScreen() {
 
         {/* Role Selection */}
         <Text style={styles.label}>Account Type</Text>
-        <View style={styles.pickerContainer}>
-          <Picker
-            selectedValue={formData.role}
-            onValueChange={(value) =>
-              setFormData({ ...formData, role: value as "employee" | "admin" | "customer" })
-            }
-            style={styles.picker}
+        <View style={styles.roleButtonsContainer}>
+          <TouchableOpacity
+            style={[
+              styles.roleButton,
+              formData.role === "employee" && styles.roleButtonActive,
+            ]}
+            onPress={() => setFormData({ ...formData, role: "employee" })}
           >
-            <Picker.Item label="Employee" value="employee" />
-            <Picker.Item label="Customer" value="customer" />
-            <Picker.Item label="Admin" value="admin" />
-          </Picker>
+            <Text
+              style={[
+                styles.roleButtonText,
+                formData.role === "employee" && styles.roleButtonTextActive,
+              ]}
+            >
+              Employee
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.roleButton,
+              formData.role === "customer" && styles.roleButtonActive,
+            ]}
+            onPress={() => setFormData({ ...formData, role: "customer" })}
+          >
+            <Text
+              style={[
+                styles.roleButtonText,
+                formData.role === "customer" && styles.roleButtonTextActive,
+              ]}
+            >
+              Customer
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.roleButton,
+              formData.role === "admin" && styles.roleButtonActive,
+            ]}
+            onPress={() => setFormData({ ...formData, role: "admin" })}
+          >
+            <Text
+              style={[
+                styles.roleButtonText,
+                formData.role === "admin" && styles.roleButtonTextActive,
+              ]}
+            >
+              Admin
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Password Input */}
@@ -215,15 +253,33 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     fontSize: 16,
   },
-  pickerContainer: {
-    borderWidth: 1,
+  roleButtonsContainer: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 16,
+  },
+  roleButton: {
+    flex: 1,
+    height: 48,
+    borderWidth: 2,
     borderColor: "#ddd",
     borderRadius: 8,
-    marginBottom: 16,
-    overflow: "hidden",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fff",
   },
-  picker: {
-    height: 48,
+  roleButtonActive: {
+    borderColor: "#007AFF",
+    backgroundColor: "#EEF5FF",
+  },
+  roleButtonText: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: "#666",
+  },
+  roleButtonTextActive: {
+    color: "#007AFF",
+    fontWeight: "600",
   },
   button: {
     height: 48,
