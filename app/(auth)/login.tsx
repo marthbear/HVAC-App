@@ -1,7 +1,7 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
+import { useState } from "react";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "../../src/auth/AuthContext";
-
 
 //Login Screen
 
@@ -9,26 +9,40 @@ export default function LoginScreen(){
     //router used to imperatively navigate to other routes
     const router = useRouter();
 
-    const { login } = useAuth();
+    const { login, isAdmin, isEmployee } = useAuth();
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [loading, setLoading] = useState(false);
 
+    //login handler
+    const handleLogin = async () => {
+        if (!email || !password) {
+            Alert.alert("Error", "Please enter both email and password");
+            return;
+        }
 
-    //temporary login handlers
-    const handleAdminLogin = () => {
-        login("admin");
-        router.replace("/(admin)/dashboard" as any);
+        setLoading(true);
+        try {
+            await login(email, password);
+
+            // Navigation will be handled by the auth state change
+            // Check role and redirect accordingly
+            setTimeout(() => {
+                if (isAdmin) {
+                    router.replace("/(admin)/dashboard" as any);
+                } else if (isEmployee) {
+                    router.replace("/(app)/dashboard");
+                } else {
+                    router.replace("/(app)/dashboard"); // customers go to employee app for now
+                }
+            }, 500);
+        } catch (error: any) {
+            Alert.alert("Login Failed", error.message || "Invalid email or password");
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const handleEmployeeLogin = () => {
-        login("employee");
-        router.replace("/(app)/dashboard");
-    };
-
-    /*
-    //previous temp login handler
-    const handleLogin = () => {
-        router.replace("/dashboard");
-    };
-    */
     return (
         <View style={styles.container}>
             {/*App Title and Logo*/ }
@@ -40,21 +54,29 @@ export default function LoginScreen(){
                 placeholder="Email"
                 autoCapitalize="none"
                 keyboardType="email-address"
-                />
+                value={email}
+                onChangeText={setEmail}
+            />
 
             {/*Password Input*/}
             <TextInput
                 style={styles.input}
                 placeholder="Password"
                 secureTextEntry
-                />
-            
-            <TouchableOpacity style={styles.button} onPress={handleEmployeeLogin}>
-                <Text style={styles.buttonText}>Employee Login</Text>
-            </TouchableOpacity>
+                value={password}
+                onChangeText={setPassword}
+            />
 
-            <TouchableOpacity style={[styles.button, { backgroundColor: "#444" }]} onPress={handleAdminLogin}>
-                <Text style={styles.buttonText}>Admin Login</Text>
+            <TouchableOpacity
+                style={[styles.button, loading && styles.buttonDisabled]}
+                onPress={handleLogin}
+                disabled={loading}
+            >
+                {loading ? (
+                    <ActivityIndicator color="#ffffff" />
+                ) : (
+                    <Text style={styles.buttonText}>Log In</Text>
+                )}
             </TouchableOpacity>
 
             {/* Create Account Link */}
@@ -97,6 +119,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginTop: 8,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   buttonText: {
     color: "#ffffff",

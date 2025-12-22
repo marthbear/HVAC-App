@@ -4,9 +4,16 @@ import React, {
   useState,
   useEffect,
 } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  User as FirebaseUser,
+} from "firebase/auth";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { auth, db } from "../config/firebase";
 import { AuthUser, UserRole } from "./auth.types";
-import { AUTH_STORAGE_KEY } from "./auth.storage";
 
 /**
  * Public interface for authentication context.
@@ -15,8 +22,9 @@ type AuthContextType = {
   user: AuthUser | null;
   isLoggedIn: boolean;
   isLoading: boolean;
-  login: (role: UserRole) => void;
-  logout: () => void;
+  login: (email: string, password: string) => Promise<void>;
+  signup: (email: string, password: string, role: UserRole) => Promise<void>;
+  logout: () => Promise<void>;
 
   // Role helpers
   isEmployee: boolean;
@@ -32,80 +40,111 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Holds the authenticated user (null = logged out)
   const [user, setUser] = useState<AuthUser | null>(null);
-
-  
   const [isLoading, setIsLoading] = useState(true);
 
   /**
-   * Load persisted auth state when the app starts.
+   * Listen to Firebase auth state changes.
    */
   useEffect(() => {
-    const loadStoredAuth = async () => {
-      try {
-        // Retrieve stored user JSON string
-        const storedUser = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        // User is signed in, get their role from Firestore
+        try {
+          const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
+          const userData = userDoc.data();
 
-        if (storedUser) {
-          // Parse and restore user
-          setUser(JSON.parse(storedUser));
+          const authUser: AuthUser = {
+            id: firebaseUser.uid,
+            role: userData?.role || "customer",
+            email: firebaseUser.email || undefined,
+          };
+
+          setUser(authUser);
+        } catch (error) {
+          console.error("Error fetching user data:", error);
+          setUser(null);
         }
-      } catch (error) {
-        console.warn("Failed to load auth state", error);
-      } finally {
-        // Mark loading complete no matter what
-        setIsLoading(false);
+      } else {
+        // User is signed out
+        setUser(null);
       }
-    };
+      setIsLoading(false);
+    });
 
-    loadStoredAuth();
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
   }, []);
 
   /**
-   * Log the user in and persist role.
+   * Sign in with email and password.
    */
-  const login = async (role: UserRole) => {
-  const authUser: AuthUser = {
-    id: "employee-001",
-    // Temporary, predictable ID for employee-first development
-    // This will later be replaced by Firebase Auth UID
-
-    role,
+  const login = async (email: string, password: string) => {
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      // onAuthStateChanged will handle setting the user
+    } catch (error: any) {
+      console.error("Login error:", error);
+      throw new Error(error.message || "Failed to log in");
+    }
   };
 
-  setUser(authUser);
+  /**
+   * Create a new user account.
+   */
+  const signup = async (email: string, password: string, role: UserRole) => {
+    try {
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
 
-  await AsyncStorage.setItem(
-    AUTH_STORAGE_KEY,
-    JSON.stringify(authUser)
-  );
-};
+      // Store user role in Firestore
+      await setDoc(doc(db, "users", userCredential.user.uid), {
+        email,
+        role,
+        createdAt: new Date().toISOString(),
+      });
+
+      // onAuthStateChanged will handle setting the user
+    } catch (error: any) {
+      console.error("Signup error:", error);
+      throw new Error(error.message || "Failed to create account");
+    }
+  };
 
   /**
-   * Log the user out and clear persisted state.
+   * Log the user out.
    */
   const logout = async () => {
-    setUser(null);
-    await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
+    try {
+      await signOut(auth);
+      // onAuthStateChanged will handle clearing the user
+    } catch (error: any) {
+      console.error("Logout error:", error);
+      throw new Error(error.message || "Failed to log out");
+    }
   };
 
   return (
-  <AuthContext.Provider
-    value={{
-      user,
-      isLoggedIn: user !== null,
-      isLoading,
-      login,
-      logout,
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoggedIn: user !== null,
+        isLoading,
+        login,
+        signup,
+        logout,
 
-      // Role helpers — derived from user.role
-      isEmployee: user?.role === "employee",
-      isAdmin: user?.role === "admin",
-      isCustomer: user?.role === "customer",
-    }}
-  >
-    {children}
-  </AuthContext.Provider>
-);
+        // Role helpers — derived from user.role
+        isEmployee: user?.role === "employee",
+        isAdmin: user?.role === "admin",
+        isCustomer: user?.role === "customer",
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 /**

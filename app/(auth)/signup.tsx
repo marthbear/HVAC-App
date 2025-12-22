@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { Picker } from "@react-native-picker/picker";
+import { useAuth } from "../../src/auth/AuthContext";
 
 /**
  * Signup Screen
@@ -10,6 +11,8 @@ import { Picker } from "@react-native-picker/picker";
  */
 export default function SignupScreen() {
   const router = useRouter();
+  const { signup } = useAuth();
+  const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -20,7 +23,7 @@ export default function SignupScreen() {
     role: "employee" as "employee" | "admin" | "customer",
   });
 
-  const handleSignup = () => {
+  const handleSignup = async () => {
     // Validate form
     if (!formData.name.trim()) {
       Alert.alert("Error", "Please enter your name");
@@ -47,20 +50,33 @@ export default function SignupScreen() {
       return;
     }
 
-    // TODO: Send to backend to create account
-    console.log("Creating account:", formData);
+    setLoading(true);
+    try {
+      // Create account with Firebase
+      await signup(formData.email, formData.password, formData.role);
 
-    // Show success and navigate to login
-    Alert.alert(
-      "Success",
-      "Account created successfully! Please log in.",
-      [
-        {
-          text: "OK",
-          onPress: () => router.replace("/login"),
-        },
-      ]
-    );
+      // Show success and navigate based on role
+      Alert.alert(
+        "Success",
+        "Account created successfully!",
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              if (formData.role === "admin") {
+                router.replace("/(admin)/dashboard" as any);
+              } else {
+                router.replace("/(app)/dashboard");
+              }
+            },
+          },
+        ]
+      );
+    } catch (error: any) {
+      Alert.alert("Signup Failed", error.message || "Failed to create account");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -138,8 +154,16 @@ export default function SignupScreen() {
         />
 
         {/* Signup Button */}
-        <TouchableOpacity style={styles.button} onPress={handleSignup}>
-          <Text style={styles.buttonText}>Create Account</Text>
+        <TouchableOpacity
+          style={[styles.button, loading && styles.buttonDisabled]}
+          onPress={handleSignup}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#ffffff" />
+          ) : (
+            <Text style={styles.buttonText}>Create Account</Text>
+          )}
         </TouchableOpacity>
 
         {/* Back to Login */}
@@ -208,6 +232,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginTop: 8,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   buttonText: {
     color: "#ffffff",
