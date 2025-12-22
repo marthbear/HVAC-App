@@ -1,4 +1,15 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  collection,
+  getDocs,
+  getDoc,
+  doc,
+  addDoc,
+  updateDoc,
+  query,
+  orderBy,
+  Timestamp,
+} from "firebase/firestore";
+import { db } from "../../config/firebase";
 
 /**
  * Service Request model.
@@ -19,98 +30,133 @@ export type ServiceRequest = {
   submittedAt: string;
 };
 
-const STORAGE_KEY = "@service_requests";
+const COLLECTION_NAME = "serviceRequests";
 
 /**
- * Default service requests for first time users.
- */
-const DEFAULT_REQUESTS: ServiceRequest[] = [
-  {
-    id: "sr-1",
-    name: "Robert Martinez",
-    phone: "(804) 555-9999",
-    email: "robert@email.com",
-    address: "321 Oak Lane, Richmond, VA",
-    serviceType: "Service call",
-    isEmergency: true,
-    description: "AC not working at all. No cool air coming out.",
-    preferredDate: "ASAP",
-    status: "Pending",
-    submittedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "sr-2",
-    name: "Linda Thompson",
-    phone: "(804) 555-7777",
-    email: "linda.t@email.com",
-    address: "555 Maple Dr, Henrico, VA",
-    serviceType: "Preventative maintenance",
-    isEmergency: false,
-    description: "Annual maintenance check for furnace before winter.",
-    preferredDate: "Next week",
-    status: "Pending",
-    submittedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-  },
-];
-
-/**
- * Get all service requests from AsyncStorage.
+ * Get all service requests from Firestore.
  */
 export async function getServiceRequests(): Promise<ServiceRequest[]> {
   try {
-    const data = await AsyncStorage.getItem(STORAGE_KEY);
-    if (data) {
-      return JSON.parse(data);
-    }
-    // First time - save default requests
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_REQUESTS));
-    return DEFAULT_REQUESTS;
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      orderBy("submittedAt", "desc")
+    );
+    const querySnapshot = await getDocs(q);
+
+    const requests: ServiceRequest[] = [];
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      requests.push({
+        id: doc.id,
+        name: data.name,
+        phone: data.phone,
+        email: data.email,
+        address: data.address,
+        serviceType: data.serviceType,
+        isEmergency: data.isEmergency,
+        description: data.description,
+        preferredDate: data.preferredDate,
+        status: data.status,
+        submittedAt: data.submittedAt,
+      });
+    });
+
+    return requests;
   } catch (error) {
     console.error("Error loading service requests:", error);
-    return DEFAULT_REQUESTS;
+    return [];
   }
 }
 
 /**
  * Get service request by ID.
  */
-export async function getServiceRequestById(id: string): Promise<ServiceRequest | undefined> {
-  const requests = await getServiceRequests();
-  return requests.find((request) => request.id === id);
+export async function getServiceRequestById(
+  id: string
+): Promise<ServiceRequest | undefined> {
+  try {
+    const docRef = doc(db, COLLECTION_NAME, id);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      return {
+        id: docSnap.id,
+        name: data.name,
+        phone: data.phone,
+        email: data.email,
+        address: data.address,
+        serviceType: data.serviceType,
+        isEmergency: data.isEmergency,
+        description: data.description,
+        preferredDate: data.preferredDate,
+        status: data.status,
+        submittedAt: data.submittedAt,
+      };
+    }
+    return undefined;
+  } catch (error) {
+    console.error("Error loading service request:", error);
+    return undefined;
+  }
 }
 
 /**
- * Add a new service request.
+ * Add a new service request to Firestore.
  */
 export async function addServiceRequest(
   request: Omit<ServiceRequest, "id" | "status" | "submittedAt">
 ): Promise<ServiceRequest> {
-  const newRequest: ServiceRequest = {
-    ...request,
-    id: `sr-${Date.now()}`,
-    status: "Pending",
-    submittedAt: new Date().toISOString(),
-  };
+  try {
+    // Remove undefined values (Firestore doesn't allow them)
+    const cleanedRequest: any = {
+      name: request.name,
+      phone: request.phone,
+      serviceType: request.serviceType,
+      description: request.description,
+      status: "Pending",
+      submittedAt: new Date().toISOString(),
+    };
 
-  const requests = await getServiceRequests();
-  requests.unshift(newRequest);
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(requests));
+    // Only add optional fields if they have values
+    if (request.email !== undefined && request.email !== "") {
+      cleanedRequest.email = request.email;
+    }
+    if (request.address !== undefined && request.address !== "") {
+      cleanedRequest.address = request.address;
+    }
+    if (request.preferredDate !== undefined && request.preferredDate !== "") {
+      cleanedRequest.preferredDate = request.preferredDate;
+    }
+    if (request.isEmergency !== undefined) {
+      cleanedRequest.isEmergency = request.isEmergency;
+    }
 
-  return newRequest;
+    const docRef = await addDoc(collection(db, COLLECTION_NAME), cleanedRequest);
+
+    return {
+      id: docRef.id,
+      ...cleanedRequest,
+    } as ServiceRequest;
+  } catch (error) {
+    console.error("Error adding service request:", error);
+    throw error;
+  }
 }
 
 /**
- * Update service request status.
+ * Update service request status in Firestore.
  */
 export async function updateServiceRequestStatus(
   id: string,
   status: ServiceRequest["status"]
 ): Promise<void> {
-  const requests = await getServiceRequests();
-  const request = requests.find((r) => r.id === id);
-  if (request) {
-    request.status = status;
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(requests));
+  try {
+    const docRef = doc(db, COLLECTION_NAME, id);
+    await updateDoc(docRef, { status });
+  } catch (error) {
+    console.error("Error updating service request status:", error);
+    throw error;
   }
 }
 

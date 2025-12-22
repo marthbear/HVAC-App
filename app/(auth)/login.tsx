@@ -9,7 +9,7 @@ export default function LoginScreen(){
     //router used to imperatively navigate to other routes
     const router = useRouter();
 
-    const { login, isAdmin, isEmployee } = useAuth();
+    const { login } = useAuth();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
@@ -23,19 +23,16 @@ export default function LoginScreen(){
 
         setLoading(true);
         try {
-            await login(email, password);
+            const role = await login(email, password);
 
-            // Navigation will be handled by the auth state change
-            // Check role and redirect accordingly
-            setTimeout(() => {
-                if (isAdmin) {
-                    router.replace("/(admin)/dashboard" as any);
-                } else if (isEmployee) {
-                    router.replace("/(app)/dashboard");
-                } else {
-                    router.replace("/(app)/dashboard"); // customers go to employee app for now
-                }
-            }, 500);
+            // Navigate based on user role
+            if (role === "admin") {
+                router.replace("/(admin)/dashboard" as any);
+            } else if (role === "employee") {
+                router.replace("/(app)/dashboard");
+            } else {
+                router.replace("/(app)/dashboard"); // customers go to employee app for now
+            }
         } catch (error: any) {
             Alert.alert("Login Failed", error.message || "Invalid email or password");
         } finally {

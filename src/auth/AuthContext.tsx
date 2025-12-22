@@ -22,7 +22,7 @@ type AuthContextType = {
   user: AuthUser | null;
   isLoggedIn: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<UserRole>;
   signup: (email: string, password: string, role: UserRole) => Promise<void>;
   logout: () => Promise<void>;
 
@@ -78,13 +78,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   /**
    * Sign in with email and password.
    */
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<UserRole> => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      // onAuthStateChanged will handle setting the user
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+
+      // Fetch user role from Firestore
+      const userDoc = await getDoc(doc(db, "users", userCredential.user.uid));
+      const userData = userDoc.data();
+      const role = userData?.role || "customer";
+
+      // onAuthStateChanged will handle setting the user state
+      return role;
     } catch (error: any) {
       console.error("Login error:", error);
-      throw new Error(error.message || "Failed to log in");
+
+      // Provide user-friendly error messages
+      let errorMessage = "Failed to log in";
+
+      if (error.code === "auth/invalid-credential" || error.code === "auth/wrong-password" || error.code === "auth/user-not-found") {
+        errorMessage = "Invalid email or password. Please try again.";
+      } else if (error.code === "auth/invalid-email") {
+        errorMessage = "Invalid email address. Please check and try again.";
+      } else if (error.code === "auth/user-disabled") {
+        errorMessage = "This account has been disabled. Please contact support.";
+      } else if (error.code === "auth/too-many-requests") {
+        errorMessage = "Too many failed login attempts. Please try again later.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      throw new Error(errorMessage);
     }
   };
 
@@ -109,7 +132,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // onAuthStateChanged will handle setting the user
     } catch (error: any) {
       console.error("Signup error:", error);
-      throw new Error(error.message || "Failed to create account");
+
+      // Provide user-friendly error messages
+      let errorMessage = "Failed to create account";
+
+      if (error.code === "auth/email-already-in-use") {
+        errorMessage = "This email is already registered. Please use a different email or try logging in.";
+      } else if (error.code === "auth/weak-password") {
+        errorMessage = "Password is too weak. Please use a stronger password.";
+      } else if (error.code === "auth/invalid-email") {
+        errorMessage = "Invalid email address. Please check and try again.";
+      } else if (error.code === "auth/operation-not-allowed") {
+        errorMessage = "Email/password accounts are not enabled. Please contact support.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      throw new Error(errorMessage);
     }
   };
 

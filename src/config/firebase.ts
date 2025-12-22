@@ -7,7 +7,11 @@ import {
   initializeAuth,
   getReactNativePersistence,
 } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import {
+  getFirestore,
+  initializeFirestore,
+  enableNetwork
+} from "firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 
@@ -35,8 +39,18 @@ if (Platform.OS === "web") {
   });
 }
 
-// Initialize Cloud Firestore and get a reference to the service
-export const db = getFirestore(app);
+// Initialize Cloud Firestore with platform-specific settings
+let db;
+if (Platform.OS === "web") {
+  // For web, initialize with cache disabled to prevent offline issues
+  db = initializeFirestore(app, {
+    experimentalForceLongPolling: true,
+    useFetchStreams: false
+  });
+} else {
+  // For React Native, use default settings
+  db = getFirestore(app);
+}
 
-export { auth };
+export { auth, db };
 export default app;
