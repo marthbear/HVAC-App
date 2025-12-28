@@ -8,12 +8,14 @@ import {
   RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import {
   getServiceRequests,
   ServiceRequest,
 } from "@/src/auth/data/serviceRequests";
 
 export default function ServiceRequestsScreen() {
+  const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
 
@@ -60,7 +62,15 @@ export default function ServiceRequestsScreen() {
   };
 
   const renderRequest = ({ item }: { item: ServiceRequest }) => (
-    <TouchableOpacity style={styles.requestCard}>
+    <TouchableOpacity
+      style={styles.requestCard}
+      onPress={() => {
+        router.push({
+          pathname: "/(admin)/service-requests/[id]",
+          params: { id: item.id },
+        });
+      }}
+    >
       <View style={styles.requestHeader}>
         <View style={{ flex: 1 }}>
           <Text style={styles.requestName}>{item.name}</Text>

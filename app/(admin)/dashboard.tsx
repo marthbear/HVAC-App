@@ -130,7 +130,10 @@ export default function AdminDashboard() {
       <TouchableOpacity
         style={styles.requestCard}
         onPress={() => {
-          // TODO: Navigate to service request details
+          router.push({
+            pathname: "/(admin)/service-requests/[id]",
+            params: { id: item.id },
+          });
         }}
       >
         <View style={styles.requestHeader}>

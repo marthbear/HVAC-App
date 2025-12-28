@@ -8,10 +8,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { useAuth } from "../../src/auth/AuthContext";
+import { useAuth } from "@/src/auth/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 
-export default function AdminMoreScreen() {
+export default function MoreScreen() {
   const router = useRouter();
   const { logout, user } = useAuth();
 
@@ -23,39 +23,39 @@ export default function AdminMoreScreen() {
   const menuItems = [
     {
       icon: "person-outline",
-      title: "Account Details",
+      title: "My Profile",
       subtitle: "View and edit your profile",
-      onPress: () => {},
+      onPress: () => router.push("/(app)/more/my-profile"),
+    },
+    {
+      icon: "time-outline",
+      title: "Time Tracking",
+      subtitle: "View your hours and timesheet",
+      onPress: () => router.push("/(app)/more/time-tracking"),
+    },
+    {
+      icon: "calendar-outline",
+      title: "My Schedule",
+      subtitle: "View your upcoming jobs",
+      onPress: () => router.push("/(app)/more/my-schedule"),
     },
     {
       icon: "settings-outline",
       title: "App Settings",
       subtitle: "Notifications, display, and more",
-      onPress: () => {},
-    },
-    {
-      icon: "people-outline",
-      title: "Manage Team",
-      subtitle: "Add or remove employees",
-      onPress: () => {},
-    },
-    {
-      icon: "business-outline",
-      title: "Company Settings",
-      subtitle: "Business info and preferences",
-      onPress: () => {},
+      onPress: () => router.push("/(app)/more/app-settings"),
     },
     {
       icon: "document-text-outline",
-      title: "Reports",
-      subtitle: "View analytics and reports",
-      onPress: () => {},
+      title: "My Reports",
+      subtitle: "View your performance stats",
+      onPress: () => router.push("/(app)/more/my-reports"),
     },
     {
       icon: "help-circle-outline",
       title: "Help & Support",
       subtitle: "Get help or contact support",
-      onPress: () => {},
+      onPress: () => router.push("/(app)/more/help-support"),
     },
   ];
 
@@ -68,16 +68,18 @@ export default function AdminMoreScreen() {
         {/* Header */}
         <Text style={styles.header}>More</Text>
 
-        {/* Admin Profile Card */}
+        {/* Profile Card */}
         <View style={styles.profileCard}>
           <View style={styles.avatarContainer}>
             <Ionicons name="person" size={32} color="#007AFF" />
           </View>
           <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>Admin User</Text>
-            <Text style={styles.profileRole}>Administrator</Text>
+            <Text style={styles.profileName}>
+              {user?.name || "Employee"}
+            </Text>
+            <Text style={styles.profileRole}>Field Technician</Text>
             <View style={styles.badge}>
-              <Text style={styles.badgeText}>Admin Access</Text>
+              <Text style={styles.badgeText}>Employee</Text>
             </View>
           </View>
         </View>
@@ -171,7 +173,7 @@ const styles = StyleSheet.create({
   },
   badge: {
     alignSelf: "flex-start",
-    backgroundColor: "#007AFF",
+    backgroundColor: "#34C759",
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,

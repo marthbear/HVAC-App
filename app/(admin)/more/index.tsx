@@ -11,7 +11,7 @@ import { useRouter } from "expo-router";
 import { useAuth } from "@/src/auth/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 
-export default function MoreScreen() {
+export default function AdminMoreScreen() {
   const router = useRouter();
   const { logout, user } = useAuth();
 
@@ -23,39 +23,39 @@ export default function MoreScreen() {
   const menuItems = [
     {
       icon: "person-outline",
-      title: "My Profile",
+      title: "Account Details",
       subtitle: "View and edit your profile",
-      onPress: () => {},
-    },
-    {
-      icon: "time-outline",
-      title: "Time Tracking",
-      subtitle: "View your hours and timesheet",
-      onPress: () => {},
-    },
-    {
-      icon: "calendar-outline",
-      title: "My Schedule",
-      subtitle: "View your upcoming jobs",
-      onPress: () => {},
+      onPress: () => router.push("/(admin)/more/account-details"),
     },
     {
       icon: "settings-outline",
       title: "App Settings",
       subtitle: "Notifications, display, and more",
-      onPress: () => {},
+      onPress: () => router.push("/(admin)/more/app-settings"),
+    },
+    {
+      icon: "people-outline",
+      title: "Manage Team",
+      subtitle: "Add or remove employees",
+      onPress: () => router.push("/(admin)/more/manage-team"),
+    },
+    {
+      icon: "business-outline",
+      title: "Company Settings",
+      subtitle: "Business info and preferences",
+      onPress: () => router.push("/(admin)/more/company-settings"),
     },
     {
       icon: "document-text-outline",
-      title: "My Reports",
-      subtitle: "View your performance stats",
-      onPress: () => {},
+      title: "Reports",
+      subtitle: "View analytics and reports",
+      onPress: () => router.push("/(admin)/more/reports"),
     },
     {
       icon: "help-circle-outline",
       title: "Help & Support",
       subtitle: "Get help or contact support",
-      onPress: () => {},
+      onPress: () => router.push("/(admin)/more/help-support"),
     },
   ];
 
@@ -68,18 +68,16 @@ export default function MoreScreen() {
         {/* Header */}
         <Text style={styles.header}>More</Text>
 
-        {/* Profile Card */}
+        {/* Admin Profile Card */}
         <View style={styles.profileCard}>
           <View style={styles.avatarContainer}>
             <Ionicons name="person" size={32} color="#007AFF" />
           </View>
           <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>
-              {user?.name || "Employee"}
-            </Text>
-            <Text style={styles.profileRole}>Field Technician</Text>
+            <Text style={styles.profileName}>Admin User</Text>
+            <Text style={styles.profileRole}>Administrator</Text>
             <View style={styles.badge}>
-              <Text style={styles.badgeText}>Employee</Text>
+              <Text style={styles.badgeText}>Admin Access</Text>
             </View>
           </View>
         </View>
@@ -173,7 +171,7 @@ const styles = StyleSheet.create({
   },
   badge: {
     alignSelf: "flex-start",
-    backgroundColor: "#34C759",
+    backgroundColor: "#007AFF",
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,

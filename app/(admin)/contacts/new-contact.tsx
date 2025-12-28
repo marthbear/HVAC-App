@@ -1,17 +1,18 @@
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import React, { useState } from "react";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 
 type ContactType = "employee" | "customer";
 
@@ -101,7 +102,7 @@ export default function NewContactScreen() {
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.content}>
+        <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
           {/* Contact Type */}
           <View style={styles.section}>
             <Text style={styles.label}>Contact Type</Text>
@@ -195,15 +196,13 @@ export default function NewContactScreen() {
               {/* Address */}
               <View style={styles.section}>
                 <Text style={styles.label}>Address *</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  placeholder="Enter full address"
+                <AddressAutocomplete
                   value={address}
                   onChangeText={setAddress}
+                  onSelectAddress={(addr) => setAddress(addr)}
+                  placeholder="Enter full address"
                   multiline
-                  numberOfLines={3}
-                  textAlignVertical="top"
-                  placeholderTextColor="#999"
+                  style={styles.textArea}
                 />
               </View>
             </>

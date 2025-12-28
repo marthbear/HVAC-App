@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { addServiceRequest } from "@/src/auth/data/serviceRequests";
+import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 
 export default function ServiceRequestForm() {
   const [formData, setFormData] = useState({
@@ -73,7 +74,7 @@ export default function ServiceRequestForm() {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       <View style={styles.header}>
         <Text style={styles.title}>Request HVAC Service</Text>
         <Text style={styles.subtitle}>
@@ -117,12 +118,13 @@ export default function ServiceRequestForm() {
         />
 
         <Text style={styles.label}>Service Address</Text>
-        <TextInput
-          style={styles.input}
+        <AddressAutocomplete
           value={formData.address}
           onChangeText={(text) => setFormData({ ...formData, address: text })}
+          onSelectAddress={(address) =>
+            setFormData({ ...formData, address })
+          }
           placeholder="123 Main St, City, State"
-          placeholderTextColor="#888"
         />
 
         <View style={styles.labelWithHelp}>

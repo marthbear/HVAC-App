@@ -2,17 +2,12 @@
 import "react-native-get-random-values";
 
 import { initializeApp } from "firebase/app";
-import {
-  getAuth,
-  initializeAuth,
-  getReactNativePersistence,
-} from "firebase/auth";
+import { getAuth } from "firebase/auth";
 import {
   getFirestore,
   initializeFirestore,
   enableNetwork
 } from "firebase/firestore";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 
 // Your web app's Firebase configuration
@@ -29,23 +24,16 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firebase Authentication with React Native persistence
-let auth;
-if (Platform.OS === "web") {
-  auth = getAuth(app);
-} else {
-  auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage),
-  });
-}
+// Initialize Firebase Authentication
+// Firebase v12 handles persistence automatically for both web and React Native
+const auth = getAuth(app);
 
 // Initialize Cloud Firestore with platform-specific settings
 let db;
 if (Platform.OS === "web") {
-  // For web, initialize with cache disabled to prevent offline issues
+  // For web, initialize with long polling to prevent connection issues
   db = initializeFirestore(app, {
-    experimentalForceLongPolling: true,
-    useFetchStreams: false
+    experimentalForceLongPolling: true
   });
 } else {
   // For React Native, use default settings
