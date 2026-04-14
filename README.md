@@ -1,50 +1,103 @@
-# Welcome to your Expo app 👋
+# NOVA Air Solutions — Field Service Management App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A cross-platform mobile application built for a commercial HVAC company to modernize their field operations, technician scheduling, and customer communications. Developed and maintained as a solo contract project from the ground up.
 
-## Get started
+---
 
-1. Install dependencies
+## Features
 
-   ```bash
-   npm install
-   ```
+- **AI-Powered Scheduling & Dispatch** — Integrated with the Anthropic Claude API to generate intelligent scheduling recommendations and reduce manual dispatch coordination
+- **Job & Work Order Management** — Create, assign, and track field service jobs in real time
+- **Technician Scheduling** — Manage technician availability, assignments, and dispatch
+- **Customer Notifications** — Automated transactional emails via the Resend API
+- **Address Validation** — Google Places API integration for accurate job site entry
+- **Real-Time Data Sync** — Live updates across devices using Firestore
+- **Authentication** — Secure role-based access via Firebase Auth
+- **Serverless Backend** — Business logic handled through Firebase Cloud Functions
 
-2. Start the app
+---
 
-   ```bash
-   npx expo start
-   ```
+## Tech Stack
 
-In the output, you'll find options to open the app in a
+| Layer | Technology |
+|---|---|
+| Mobile App | React Native, TypeScript |
+| Backend | Firebase Cloud Functions, Node.js |
+| Database | Firestore (Firebase) |
+| Auth | Firebase Authentication |
+| AI / Scheduling | Anthropic Claude API |
+| Email | Resend API |
+| Address Lookup | Google Places API |
+| Companion Website | Next.js, TypeScript |
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+---
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## Architecture Overview
 
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+React Native App (iOS & Android)
+        │
+        ├── Firebase Auth (authentication)
+        ├── Firestore (real-time database)
+        └── Cloud Functions (serverless backend)
+                ├── Anthropic Claude API (AI scheduling)
+                ├── Resend API (customer emails)
+                └── Google Places API (address validation)
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+---
 
-## Learn more
+## Project Context
 
-To learn more about developing your project with Expo, look at the following resources:
+This is a production application built under contract for NOVA Air Solution, a commercial HVAC company. All development — architecture, feature scoping, client requirements gathering, and deployment — was handled independently.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+---
 
-## Join the community
+## Getting Started
 
-Join our community of developers creating universal apps.
+> **Note:** This is a private client project. The repository is for portfolio/reference purposes. Environment variables and Firebase config are not included.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+### Prerequisites
+
+- Node.js >= 18
+- React Native development environment ([React Native CLI Quickstart](https://reactnative.dev/docs/environment-setup))
+- Firebase project with Firestore, Auth, and Cloud Functions enabled
+
+### Installation
+
+```bash
+git clone https://github.com/marthbear/<repo-name>.git
+cd <repo-name>
+npm install
+```
+
+### Environment Variables
+
+Create a `.env` file in the root with the following:
+
+```
+FIREBASE_API_KEY=
+FIREBASE_AUTH_DOMAIN=
+FIREBASE_PROJECT_ID=
+ANTHROPIC_API_KEY=
+RESEND_API_KEY=
+GOOGLE_PLACES_API_KEY=
+```
+
+### Run
+
+```bash
+# iOS
+npx react-native run-ios
+
+# Android
+npx react-native run-android
+```
+
+---
+
+## Author
+
+**Nicholas Larson**
+[github.com/marthbear](https://github.com/marthbear) · [linkedin.com/in/nicholas-larson2002](https://linkedin.com/in/nicholas-larson2002)
+
