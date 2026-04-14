@@ -1,8 +1,8 @@
-import { View, Text, StyleSheet, ScrollView, Linking } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Linking, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useNavigation } from "expo-router";
-import { useEffect } from "react";
-import { getServiceRequestById } from "@/src/auth/data/serviceRequests";
+import { useEffect, useState } from "react";
+import { getServiceRequestById, ServiceRequest } from "@/src/auth/data/serviceRequests";
 
 /**
  * Service request detail screen.
@@ -18,8 +18,21 @@ export default function ServiceRequestDetailsScreen() {
   // Access the navigation object to set header options
   const navigation = useNavigation();
 
-  // Load the service request from the shared data source
-  const request = id ? getServiceRequestById(id) : undefined;
+  // State for the service request
+  const [request, setRequest] = useState<ServiceRequest | undefined>(undefined);
+  const [loading, setLoading] = useState(true);
+
+  // Load the service request from Firestore
+  useEffect(() => {
+    async function loadRequest() {
+      if (id) {
+        const data = await getServiceRequestById(id);
+        setRequest(data);
+      }
+      setLoading(false);
+    }
+    loadRequest();
+  }, [id]);
 
   /**
    * Update the header title when the request is loaded.
@@ -31,6 +44,19 @@ export default function ServiceRequestDetailsScreen() {
       });
     }
   }, [request, navigation]);
+
+  /**
+   * Handle loading state
+   */
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+          <ActivityIndicator size="large" color="#007AFF" />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   /**
    * Handle invalid or missing service request

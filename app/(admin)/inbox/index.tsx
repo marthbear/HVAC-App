@@ -1,78 +1,58 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
   TouchableOpacity,
+  RefreshControl,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-
-type AdminMessage = {
-  id: string;
-  from: string;
-  subject: string;
-  preview: string;
-  timestamp: string;
-  unread: boolean;
-  type: "employee" | "customer" | "system";
-};
+import { useTheme } from "@/src/theme/ThemeContext";
+import {
+  getConversations,
+  getUnreadCount,
+  formatMessageTime,
+  Conversation,
+} from "@/src/services/messaging";
 
 export default function AdminInboxScreen() {
   const router = useRouter();
+  const { theme } = useTheme();
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  // Mock admin messages
-  const messages: AdminMessage[] = [
-    {
-      id: "1",
-      from: "John Smith",
-      subject: "Request for Time Off",
-      preview: "I would like to request time off for next week...",
-      timestamp: "10:30 AM",
-      unread: true,
-      type: "employee",
-    },
-    {
-      id: "2",
-      from: "Sarah Johnson",
-      subject: "Equipment Issue",
-      preview: "The van's AC unit needs maintenance...",
-      timestamp: "Yesterday",
-      unread: true,
-      type: "employee",
-    },
-    {
-      id: "3",
-      from: "Smith Residence",
-      subject: "Service Feedback",
-      preview: "Thank you for the excellent service today...",
-      timestamp: "Yesterday",
-      unread: false,
-      type: "customer",
-    },
-    {
-      id: "4",
-      from: "System",
-      subject: "Weekly Report Ready",
-      preview: "Your weekly performance report is now available...",
-      timestamp: "Mon",
-      unread: false,
-      type: "system",
-    },
-    {
-      id: "5",
-      from: "Mike Williams",
-      subject: "Question about Schedule",
-      preview: "Can I switch shifts with Sarah on Thursday?",
-      timestamp: "Mon",
-      unread: false,
-      type: "employee",
-    },
-  ];
+  useEffect(() => {
+    loadConversations();
+  }, []);
 
-  const getTypeIcon = (type: AdminMessage["type"]) => {
+  const loadConversations = async () => {
+    try {
+      const [convs, unread] = await Promise.all([
+        getConversations(),
+        getUnreadCount(),
+      ]);
+      setConversations(convs);
+      setUnreadCount(unread);
+    } catch (error) {
+      console.error("Error loading conversations:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadConversations();
+    setRefreshing(false);
+  };
+
+  const getTypeIcon = (type: Conversation["participantType"]) => {
     switch (type) {
       case "employee":
         return "person-circle-outline";
@@ -85,7 +65,7 @@ export default function AdminInboxScreen() {
     }
   };
 
-  const getTypeColor = (type: AdminMessage["type"]) => {
+  const getTypeColor = (type: Conversation["participantType"]) => {
     switch (type) {
       case "employee":
         return "#007AFF";
@@ -98,75 +78,160 @@ export default function AdminInboxScreen() {
     }
   };
 
-  const renderMessage = ({ item }: { item: AdminMessage }) => (
+  const getTypeLabel = (type: Conversation["participantType"]) => {
+    switch (type) {
+      case "employee":
+        return "Employee";
+      case "customer":
+        return "Customer";
+      case "system":
+        return "Alert";
+      default:
+        return "";
+    }
+  };
+
+  const handleConversationPress = (conversation: Conversation) => {
+    router.push({
+      pathname: "/(admin)/inbox/[id]",
+      params: { id: conversation.id },
+    });
+  };
+
+  const renderConversation = ({ item }: { item: Conversation }) => (
     <TouchableOpacity
-      style={[styles.messageCard, item.unread && styles.unreadCard]}
+      style={[
+        styles.messageCard,
+        { backgroundColor: item.unread ? theme.primaryLight : theme.surface },
+      ]}
+      onPress={() => handleConversationPress(item)}
+      activeOpacity={0.7}
     >
-      <View style={styles.iconContainer}>
+      <View style={[styles.iconContainer, { backgroundColor: getTypeColor(item.participantType) + "15" }]}>
         <Ionicons
-          name={getTypeIcon(item.type) as any}
+          name={getTypeIcon(item.participantType) as any}
           size={24}
-          color={getTypeColor(item.type)}
+          color={getTypeColor(item.participantType)}
         />
       </View>
 
       <View style={styles.messageContent}>
         <View style={styles.messageHeader}>
-          <Text style={styles.from}>{item.from}</Text>
-          <Text style={styles.timestamp}>{item.timestamp}</Text>
+          <View style={styles.senderRow}>
+            <Text style={[styles.from, { color: theme.text }]} numberOfLines={1}>
+              {item.participantName}
+            </Text>
+            <View style={[styles.typeBadge, { backgroundColor: getTypeColor(item.participantType) + "20" }]}>
+              <Text style={[styles.typeBadgeText, { color: getTypeColor(item.participantType) }]}>
+                {getTypeLabel(item.participantType)}
+              </Text>
+            </View>
+          </View>
+          <Text style={[styles.timestamp, { color: theme.textMuted }]}>
+            {formatMessageTime(item.lastMessageTime)}
+          </Text>
         </View>
 
         <Text
-          style={[styles.subject, item.unread && styles.unreadText]}
+          style={[
+            styles.subject,
+            { color: theme.text },
+            item.unread && styles.unreadText,
+          ]}
           numberOfLines={1}
         >
           {item.subject}
         </Text>
 
-        <Text style={styles.preview} numberOfLines={1}>
-          {item.preview}
+        <Text style={[styles.preview, { color: theme.textSecondary }]} numberOfLines={1}>
+          {item.lastMessage}
         </Text>
       </View>
 
-      {item.unread && <View style={styles.unreadDot} />}
+      <View style={styles.rightSection}>
+        {item.unread && (
+          <View style={[styles.unreadBadge, { backgroundColor: theme.primary }]}>
+            <Text style={styles.unreadBadgeText}>
+              {item.unreadCount > 9 ? "9+" : item.unreadCount}
+            </Text>
+          </View>
+        )}
+        <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />
+      </View>
     </TouchableOpacity>
   );
 
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const employeeCount = conversations.filter((c) => c.participantType === "employee").length;
+  const customerCount = conversations.filter((c) => c.participantType === "customer").length;
+  const systemCount = conversations.filter((c) => c.participantType === "system").length;
+
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
       {/* Header */}
       <View style={styles.headerRow}>
-        <Text style={styles.header}>Admin Inbox</Text>
+        <Text style={[styles.header, { color: theme.text }]}>Inbox</Text>
 
-        <TouchableOpacity onPress={() => router.push("/(admin)/inbox/compose-message")}>
-          <Ionicons name="add" size={28} color="#007AFF" />
+        <TouchableOpacity
+          style={[styles.composeButton, { backgroundColor: theme.primary }]}
+          onPress={() => router.push("/(admin)/inbox/compose-message")}
+        >
+          <Ionicons name="create-outline" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
 
       {/* Stats */}
       <View style={styles.statsRow}>
-        <View style={styles.statBox}>
-          <Text style={styles.statNumber}>2</Text>
-          <Text style={styles.statLabel}>Unread</Text>
+        <View style={[styles.statBox, { backgroundColor: theme.surface }]}>
+          <Text style={[styles.statNumber, { color: unreadCount > 0 ? "#EF4444" : theme.primary }]}>
+            {unreadCount}
+          </Text>
+          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Unread</Text>
         </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statNumber}>5</Text>
-          <Text style={styles.statLabel}>Total</Text>
+        <View style={[styles.statBox, { backgroundColor: theme.surface }]}>
+          <Text style={[styles.statNumber, { color: "#007AFF" }]}>{employeeCount}</Text>
+          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Team</Text>
         </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statNumber}>3</Text>
-          <Text style={styles.statLabel}>From Team</Text>
+        <View style={[styles.statBox, { backgroundColor: theme.surface }]}>
+          <Text style={[styles.statNumber, { color: "#34C759" }]}>{customerCount}</Text>
+          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Customers</Text>
+        </View>
+        <View style={[styles.statBox, { backgroundColor: theme.surface }]}>
+          <Text style={[styles.statNumber, { color: "#FF9500" }]}>{systemCount}</Text>
+          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Alerts</Text>
         </View>
       </View>
 
       {/* Message List */}
-      <FlatList
-        data={messages}
-        keyExtractor={(item) => item.id}
-        renderItem={renderMessage}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-      />
+      {conversations.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="mail-open-outline" size={64} color={theme.textMuted} />
+          <Text style={[styles.emptyTitle, { color: theme.text }]}>No Messages</Text>
+          <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
+            Your inbox is empty
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={conversations}
+          keyExtractor={(item) => item.id}
+          renderItem={renderConversation}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -174,7 +239,11 @@ export default function AdminInboxScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#f7f7f7",
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerRow: {
     flexDirection: "row",
@@ -186,29 +255,32 @@ const styles = StyleSheet.create({
   header: {
     fontSize: 28,
     fontWeight: "700",
-    color: "#000",
+  },
+  composeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
   },
   statsRow: {
     flexDirection: "row",
     paddingHorizontal: 20,
     marginBottom: 16,
-    gap: 12,
+    gap: 8,
   },
   statBox: {
     flex: 1,
-    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 12,
     alignItems: "center",
   },
   statNumber: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "700",
-    color: "#007AFF",
   },
   statLabel: {
-    fontSize: 12,
-    color: "#666",
+    fontSize: 11,
     marginTop: 2,
   },
   listContent: {
@@ -216,26 +288,16 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   messageCard: {
-    backgroundColor: "#fff",
     borderRadius: 14,
-    padding: 16,
-    marginBottom: 12,
+    padding: 14,
+    marginBottom: 10,
     flexDirection: "row",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  unreadCard: {
-    backgroundColor: "#EEF5FF",
   },
   iconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#f5f5f5",
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
@@ -249,33 +311,73 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 4,
   },
+  senderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+  },
   from: {
-    fontSize: 13,
-    color: "#999",
-    fontWeight: "500",
+    fontSize: 15,
+    fontWeight: "600",
+    flexShrink: 1,
+  },
+  typeBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  typeBadgeText: {
+    fontSize: 10,
+    fontWeight: "600",
   },
   timestamp: {
     fontSize: 12,
-    color: "#999",
+    marginLeft: 8,
   },
   subject: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "500",
     marginBottom: 2,
-    color: "#000",
   },
   unreadText: {
-    fontWeight: "600",
+    fontWeight: "700",
   },
   preview: {
-    fontSize: 14,
-    color: "#666",
+    fontSize: 13,
   },
-  unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#007AFF",
+  rightSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
     marginLeft: 8,
+  },
+  unreadBadge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 6,
+  },
+  unreadBadgeText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 40,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginTop: 16,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    marginTop: 8,
   },
 });

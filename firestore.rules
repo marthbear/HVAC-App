@@ -1,0 +1,59 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users collection - users can read/write their own document
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+
+      // Allow admins to read all user data (for seeing employee locations)
+      allow read: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Time entries - users can manage their own entries
+    match /timeEntries/{entryId} {
+      allow read: if request.auth != null &&
+        (resource.data.userId == request.auth.uid ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow delete: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Jobs collection
+    match /jobs/{jobId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Employees collection (for scheduling)
+    match /employees/{employeeId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Service requests
+    match /serviceRequests/{requestId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Companies
+    match /companies/{companyId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Bug reports
+    match /bugReports/{reportId} {
+      allow read: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow create: if request.auth != null;
+    }
+
+    // Email logs (admin only)
+    match /emailLogs/{logId} {
+      allow read: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow create: if request.auth != null;
+    }
+  }
+}

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,52 +6,107 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { EMPLOYEES, Employee } from "@/src/auth/data/employees";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { db } from "../../../src/config/firebase";
+import { useAuth } from "../../../src/auth/AuthContext";
+
+type Employee = {
+  id: string;
+  email: string;
+  createdAt: string;
+};
 
 export default function ManageTeamScreen() {
+  const { companyId } = useAuth();
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState<"All" | "Active" | "Inactive" | "On Leave">("All");
+  const [filterStatus, setFilterStatus] = useState<"All" | "Active" | "Pending">("All");
 
-  // Filter employees based on search and status
-  const filteredEmployees = EMPLOYEES.filter((employee) => {
-    const matchesSearch =
-      employee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      employee.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      employee.phone.includes(searchQuery);
+  useEffect(() => {
+    loadEmployees();
+  }, [companyId]);
 
-    const matchesStatus = filterStatus === "All" || employee.status === filterStatus;
+  const loadEmployees = async () => {
+    if (!companyId) {
+      console.log("No companyId found for admin");
+      setLoading(false);
+      return;
+    }
 
-    return matchesSearch && matchesStatus;
+    try {
+      console.log("Loading employees for companyId:", companyId);
+      const usersRef = collection(db, "users");
+      const q = query(
+        usersRef,
+        where("companyId", "==", companyId),
+        where("role", "==", "employee")
+      );
+
+      const querySnapshot = await getDocs(q);
+      console.log("Found", querySnapshot.size, "employees");
+      const employeesList: Employee[] = [];
+
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        console.log("Employee found:", {
+          id: doc.id,
+          email: data.email,
+          status: data.status,
+          companyId: data.companyId,
+        });
+        employeesList.push({
+          id: doc.id,
+          email: data.email,
+          createdAt: data.createdAt,
+        });
+      });
+
+      // Sort by createdAt (newest first)
+      employeesList.sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+
+      setEmployees(employeesList);
+    } catch (error) {
+      console.error("Error loading employees:", error);
+      Alert.alert("Error", "Failed to load employees");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filter employees based on search
+  const filteredEmployees = employees.filter((employee) => {
+    const matchesSearch = employee.email.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesSearch;
   });
 
-  const getStatusColor = (status: Employee["status"]) => {
-    switch (status) {
-      case "Active":
-        return "#34C759";
-      case "On Leave":
-        return "#FF9500";
-      case "Inactive":
-        return "#FF3B30";
-      default:
-        return "#999";
-    }
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
   };
 
-  const getRoleIcon = (role: Employee["role"]) => {
-    switch (role) {
-      case "Manager":
-        return "briefcase";
-      case "Senior Technician":
-        return "star";
-      case "Technician":
-        return "construct";
-      default:
-        return "person";
-    }
-  };
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.loadingText}>Loading employees...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -89,30 +144,6 @@ export default function ManageTeamScreen() {
           )}
         </View>
 
-        {/* Status Filter */}
-        <View style={styles.filterContainer}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {["All", "Active", "On Leave", "Inactive"].map((status) => (
-              <TouchableOpacity
-                key={status}
-                style={[
-                  styles.filterButton,
-                  filterStatus === status && styles.filterButtonActive,
-                ]}
-                onPress={() => setFilterStatus(status as typeof filterStatus)}
-              >
-                <Text
-                  style={[
-                    styles.filterButtonText,
-                    filterStatus === status && styles.filterButtonTextActive,
-                  ]}
-                >
-                  {status}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
 
         {/* Employee List */}
         {filteredEmployees.length === 0 ? (
@@ -127,88 +158,38 @@ export default function ManageTeamScreen() {
           </View>
         ) : (
           filteredEmployees.map((employee) => (
-            <TouchableOpacity
+            <View
               key={employee.id}
               style={styles.employeeCard}
-              activeOpacity={0.7}
             >
               {/* Employee Header */}
               <View style={styles.employeeHeader}>
                 <View style={styles.employeeAvatar}>
                   <Ionicons
-                    name={getRoleIcon(employee.role) as any}
+                    name="person"
                     size={24}
                     color="#007AFF"
                   />
                 </View>
                 <View style={styles.employeeInfo}>
-                  <Text style={styles.employeeName}>{employee.name}</Text>
-                  <Text style={styles.employeeRole}>{employee.role}</Text>
+                  <Text style={styles.employeeName}>{employee.email}</Text>
+                  <Text style={styles.employeeRole}>Employee</Text>
                 </View>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    { backgroundColor: getStatusColor(employee.status) },
-                  ]}
-                >
-                  <Text style={styles.statusText}>{employee.status}</Text>
+                <View style={styles.statusBadge}>
+                  <Text style={styles.statusText}>Active</Text>
                 </View>
               </View>
 
-              {/* Contact Info */}
-              <View style={styles.contactSection}>
-                <View style={styles.contactRow}>
-                  <Ionicons name="mail-outline" size={16} color="#666" />
-                  <Text style={styles.contactText}>{employee.email}</Text>
-                </View>
-                <View style={styles.contactRow}>
-                  <Ionicons name="call-outline" size={16} color="#666" />
-                  <Text style={styles.contactText}>{employee.phone}</Text>
-                </View>
-              </View>
-
-              {/* Additional Info */}
+              {/* Join Date */}
               <View style={styles.detailsSection}>
                 <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>Join Date</Text>
+                  <Text style={styles.detailLabel}>Joined</Text>
                   <Text style={styles.detailValue}>
-                    {new Date(employee.joinDate).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
+                    {formatDate(employee.createdAt)}
                   </Text>
                 </View>
-                {employee.certifications && employee.certifications.length > 0 && (
-                  <View style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>Certifications</Text>
-                    <View style={styles.certificationContainer}>
-                      {employee.certifications.map((cert, index) => (
-                        <View key={index} style={styles.certificationBadge}>
-                          <Text style={styles.certificationText}>{cert}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-                )}
               </View>
-
-              {/* Actions */}
-              <View style={styles.actionsRow}>
-                <TouchableOpacity style={styles.actionButton}>
-                  <Ionicons name="create-outline" size={20} color="#007AFF" />
-                  <Text style={styles.actionButtonText}>Edit</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton}>
-                  <Ionicons name="calendar-outline" size={20} color="#007AFF" />
-                  <Text style={styles.actionButtonText}>Schedule</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton}>
-                  <Ionicons name="ellipsis-horizontal" size={20} color="#007AFF" />
-                  <Text style={styles.actionButtonText}>More</Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
+            </View>
           ))
         )}
       </ScrollView>
@@ -223,6 +204,16 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 16,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: "#666",
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -343,6 +334,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
+    backgroundColor: "#34C759",
   },
   statusText: {
     color: "#fff",

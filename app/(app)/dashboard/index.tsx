@@ -1,55 +1,174 @@
 import React, { useState, useEffect } from "react";
-import { Dimensions, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Dimensions,
+  FlatList,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  ActivityIndicator,
+  Alert,
+} from "react-native";
 import { LineChart } from "react-native-chart-kit";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/src/auth/AuthContext";
+import { useTheme } from "@/src/theme/ThemeContext";
 import { JOBS, Job } from "@/src/auth/data/jobs";
+import {
+  clockIn,
+  clockOut,
+  subscribeToShiftStatus,
+  getWeeklyHours,
+  ShiftStatus,
+} from "@/src/services/timeTracking";
+import {
+  startLocationTracking,
+  stopLocationTracking,
+  requestLocationPermissions,
+  hasLocationPermissions,
+} from "@/src/services/locationTracking";
 
 const screenWidth = Dimensions.get("window").width;
 
 export default function Dashboard() {
   const router = useRouter();
   const { user } = useAuth();
-  const [isClockedIn, setIsClockedIn] = useState(false);
-  const [hoursWorked, setHoursWorked] = useState(32.5);
+  const { theme } = useTheme();
+  const [shiftStatus, setShiftStatus] = useState<ShiftStatus>({
+    isClockedIn: false,
+    currentShiftId: null,
+    clockInTime: null,
+  });
+  const [hoursWorked, setHoursWorked] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [elapsedTime, setElapsedTime] = useState(0);
 
   // Filter jobs to show only those assigned to the current employee
   const openJobs = JOBS.filter(
     (job) => job.employeeId === user?.id && job.status !== "Completed"
   );
 
-  // Load clock in/out state on component mount
+  // Subscribe to shift status and load weekly hours
   useEffect(() => {
-    loadClockState();
-  }, []);
+    if (!user?.id) return;
 
-  const loadClockState = async () => {
-    try {
-      const clockState = await AsyncStorage.getItem("clockedIn");
-      if (clockState !== null) {
-        setIsClockedIn(clockState === "true");
-      }
-    } catch (error) {
-      console.error("Error loading clock state:", error);
+    const loadWeeklyHours = async () => {
+      const hours = await getWeeklyHours(user.id);
+      setHoursWorked(hours);
+    };
+
+    loadWeeklyHours();
+
+    const unsubscribe = subscribeToShiftStatus(user.id, (status) => {
+      setShiftStatus(status);
+      // Refresh weekly hours when status changes
+      loadWeeklyHours();
+    });
+
+    return () => unsubscribe();
+  }, [user?.id]);
+
+  // Update elapsed time while clocked in
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (shiftStatus.isClockedIn && shiftStatus.clockInTime) {
+      interval = setInterval(() => {
+        const now = new Date();
+        const diff = Math.floor(
+          (now.getTime() - shiftStatus.clockInTime!.getTime()) / 1000
+        );
+        setElapsedTime(diff);
+      }, 1000);
+    } else {
+      setElapsedTime(0);
     }
-  };
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [shiftStatus.isClockedIn, shiftStatus.clockInTime]);
 
   const handleClockToggle = async () => {
-    const newState = !isClockedIn;
-    setIsClockedIn(newState);
+    if (!user?.id) return;
 
-    try {
-      await AsyncStorage.setItem("clockedIn", newState.toString());
-      // TODO: Track clock in/out timestamp for hours worked calculation
-    } catch (error) {
-      console.error("Error saving clock state:", error);
+    if (shiftStatus.isClockedIn) {
+      // Clock out
+      const hours = Math.floor(elapsedTime / 3600);
+      const minutes = Math.floor((elapsedTime % 3600) / 60);
+      Alert.alert(
+        "Clock Out",
+        `You worked for ${hours}h ${minutes}m. Clock out now?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Clock Out",
+            onPress: async () => {
+              setIsLoading(true);
+              try {
+                await stopLocationTracking();
+                await clockOut(user.id);
+              } catch (error) {
+                console.error("Error clocking out:", error);
+                Alert.alert("Error", "Failed to clock out");
+              } finally {
+                setIsLoading(false);
+              }
+            },
+          },
+        ]
+      );
+    } else {
+      // Clock in
+      const permissions = await hasLocationPermissions();
+      if (!permissions.background) {
+        Alert.alert(
+          "Location Permission Required",
+          "To track your location while working, please enable background location access.",
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Enable",
+              onPress: async () => {
+                const granted = await requestLocationPermissions();
+                if (granted) {
+                  await proceedWithClockIn();
+                }
+              },
+            },
+          ]
+        );
+        return;
+      }
+
+      await proceedWithClockIn();
     }
   };
 
-  const renderJob = ({ item }: { item: Job}) => (
+  const proceedWithClockIn = async () => {
+    if (!user?.id) return;
+
+    setIsLoading(true);
+    try {
+      await clockIn(user.id);
+      await startLocationTracking(user.id);
+    } catch (error) {
+      console.error("Error clocking in:", error);
+      Alert.alert("Error", "Failed to clock in");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const formatElapsedTime = () => {
+    const hours = Math.floor(elapsedTime / 3600);
+    const minutes = Math.floor((elapsedTime % 3600) / 60);
+    return `${hours}h ${minutes}m`;
+  };
+
+  const renderJob = ({ item }: { item: Job }) => (
     <TouchableOpacity
-      style={styles.jobCard}
+      style={[styles.jobCard, { backgroundColor: theme.surface }]}
       onPress={() => {
         router.push({
           pathname: "/(app)/dashboard/[id]",
@@ -58,9 +177,12 @@ export default function Dashboard() {
       }}
     >
       <View style={{ flex: 1 }}>
-        <Text style={styles.jobTitle}>{item.type} - {item.customerName}</Text>
-        <Text style={styles.jobLocation}>
-          {new Date(item.date).toLocaleDateString()} • {item.startTime}:00 - {item.endTime}:00
+        <Text style={[styles.jobTitle, { color: theme.text }]}>
+          {item.type} - {item.customerName}
+        </Text>
+        <Text style={[styles.jobLocation, { color: theme.textSecondary }]}>
+          {new Date(item.date).toLocaleDateString()} • {item.startTime}:00 -{" "}
+          {item.endTime}:00
         </Text>
       </View>
       <Text
@@ -82,35 +204,59 @@ export default function Dashboard() {
   );
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 120 }}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: theme.background }]}
+      contentContainerStyle={{ paddingBottom: 120 }}
+    >
       {/* Clock In/Out Card */}
       <TouchableOpacity
         style={[
           styles.clockCard,
-          { backgroundColor: isClockedIn ? "#34C759" : "#FF3B30" },
+          { backgroundColor: shiftStatus.isClockedIn ? "#34C759" : "#FF3B30" },
         ]}
         onPress={handleClockToggle}
         activeOpacity={0.8}
+        disabled={isLoading}
       >
-        <Text style={styles.clockText}>
-          {isClockedIn ? "Clocked In" : "Clocked Out"}
-        </Text>
-        <Text style={styles.clockSubText}>
-          Tap to {isClockedIn ? "Clock Out" : "Clock In"}
-        </Text>
+        {isLoading ? (
+          <ActivityIndicator color="#fff" size="large" />
+        ) : (
+          <>
+            <Text style={styles.clockText}>
+              {shiftStatus.isClockedIn ? "Clocked In" : "Clocked Out"}
+            </Text>
+            {shiftStatus.isClockedIn && (
+              <View style={styles.clockElapsed}>
+                <Ionicons name="time" size={16} color="#fff" />
+                <Text style={styles.clockElapsedText}>{formatElapsedTime()}</Text>
+              </View>
+            )}
+            <Text style={styles.clockSubText}>
+              Tap to {shiftStatus.isClockedIn ? "Clock Out" : "Clock In"}
+            </Text>
+            {shiftStatus.isClockedIn && (
+              <View style={styles.locationIndicator}>
+                <Ionicons name="location" size={14} color="#fff" />
+                <Text style={styles.locationText}>Location tracking active</Text>
+              </View>
+            )}
+          </>
+        )}
       </TouchableOpacity>
 
       {/* Timecard */}
-      <View style={styles.timecard}>
-        <Text style={styles.timeTitle}>This Week</Text>
-        <Text style={styles.timeValue}>{hoursWorked.toFixed(1)} hrs</Text>
+      <View style={[styles.timecard, { backgroundColor: theme.surface }]}>
+        <Text style={[styles.timeTitle, { color: theme.textSecondary }]}>This Week</Text>
+        <Text style={[styles.timeValue, { color: theme.primary }]}>
+          {hoursWorked.toFixed(1)} hrs
+        </Text>
       </View>
 
       {/* Open Work */}
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Open Work</Text>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Open Work</Text>
         <TouchableOpacity onPress={() => router.push("/(app)/dashboard/all-jobs")}>
-          <Text style={styles.sectionLink}>View All</Text>
+          <Text style={[styles.sectionLink, { color: theme.primary }]}>View All</Text>
         </TouchableOpacity>
       </View>
 
@@ -119,72 +265,80 @@ export default function Dashboard() {
           data={openJobs}
           renderItem={renderJob}
           keyExtractor={(item) => item.id}
-          scrollEnabled={false} // important so ScrollView handles scrolling
+          scrollEnabled={false}
         />
       ) : (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyStateText}>No open jobs</Text>
-          <Text style={styles.emptyStateSubtext}>All caught up!</Text>
+          <Text style={[styles.emptyStateText, { color: theme.textSecondary }]}>
+            No open jobs
+          </Text>
+          <Text style={[styles.emptyStateSubtext, { color: theme.textMuted }]}>
+            All caught up!
+          </Text>
         </View>
       )}
 
       {/* Invoices Section */}
-      <View style={styles.invoiceCard}>
-        <Text style={styles.invoiceTitle}>Invoices</Text>
+      <View style={[styles.invoiceCard, { backgroundColor: theme.surface }]}>
+        <Text style={[styles.invoiceTitle, { color: theme.text }]}>Invoices</Text>
 
         <View style={styles.invoiceRow}>
           <View style={styles.invoiceColumn}>
-            <Text style={styles.invoiceLabel}>Collected</Text>
+            <Text style={[styles.invoiceLabel, { color: theme.textSecondary }]}>
+              Collected
+            </Text>
             <Text style={[styles.invoiceAmount, { color: "#16a34a" }]}>$0.00</Text>
           </View>
 
           <View style={styles.invoiceColumn}>
-            <Text style={styles.invoiceLabel}>Uncollected</Text>
+            <Text style={[styles.invoiceLabel, { color: theme.textSecondary }]}>
+              Uncollected
+            </Text>
             <Text style={[styles.invoiceAmount, { color: "#dc2626" }]}>$0.00</Text>
           </View>
         </View>
       </View>
 
-  {/*Jobs Graph Section*/}
-  <View style={styles.jobsgraphCard}>
-  <Text style={styles.jobsgraphTitle}>Jobs Completed This Week</Text>
+      {/* Jobs Graph Section */}
+      <View style={[styles.jobsgraphCard, { backgroundColor: theme.surface }]}>
+        <Text style={[styles.jobsgraphTitle, { color: theme.text }]}>
+          Jobs Completed This Week
+        </Text>
 
-  <LineChart
-    data={{
-      labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-      datasets: [
-        {
-          data: [0, 0, 0, 0, 0, 0, 0], // example job completion data
-          color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`, // line color
-        },
-      ],
-    }}
-    width={screenWidth - 40}
-    height={220}
-    yAxisLabel=""
-    yAxisSuffix=""
-    chartConfig={{
-      backgroundColor: "#ffffff",
-      backgroundGradientFrom: "#ffffff",
-      backgroundGradientTo: "#ffffff",
-      decimalPlaces: 0,
-      color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
-      labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-      propsForDots: {
-        r: "5",
-        strokeWidth: "2",
-        stroke: "#007AFF",
-      },
-    }}
-    
-    style={{
-      marginVertical: 8,
-      borderRadius: 16,
-      alignSelf: "center",
-    }}
-  />
-</View>
-
+        <LineChart
+          data={{
+            labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+            datasets: [
+              {
+                data: [0, 0, 0, 0, 0, 0, 0],
+                color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
+              },
+            ],
+          }}
+          width={screenWidth - 40}
+          height={220}
+          yAxisLabel=""
+          yAxisSuffix=""
+          chartConfig={{
+            backgroundColor: theme.surface,
+            backgroundGradientFrom: theme.surface,
+            backgroundGradientTo: theme.surface,
+            decimalPlaces: 0,
+            color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
+            labelColor: () => theme.text,
+            propsForDots: {
+              r: "5",
+              strokeWidth: "2",
+              stroke: "#007AFF",
+            },
+          }}
+          style={{
+            marginVertical: 8,
+            borderRadius: 16,
+            alignSelf: "center",
+          }}
+        />
+      </View>
     </ScrollView>
   );
 }
@@ -192,7 +346,6 @@ export default function Dashboard() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f7f7f7",
     padding: 20,
     paddingTop: 60,
   },
@@ -202,20 +355,46 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 20,
+    minHeight: 140,
   },
   clockText: {
     color: "#fff",
     fontSize: 28,
     fontWeight: "600",
   },
+  clockElapsed: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 8,
+  },
+  clockElapsedText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "500",
+  },
   clockSubText: {
     color: "#fff",
     fontSize: 16,
-    marginTop: 4,
+    marginTop: 8,
     opacity: 0.9,
   },
+  locationIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 8,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  locationText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "500",
+  },
   timecard: {
-    backgroundColor: "#fff",
     borderRadius: 16,
     padding: 20,
     elevation: 2,
@@ -226,14 +405,12 @@ const styles = StyleSheet.create({
   },
   timeTitle: {
     fontSize: 18,
-    color: "#555",
     fontWeight: "500",
   },
   timeValue: {
     fontSize: 30,
     fontWeight: "700",
     marginTop: 8,
-    color: "#007AFF",
   },
   sectionHeader: {
     marginTop: 30,
@@ -245,14 +422,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: "600",
-    color: "#333",
   },
   sectionLink: {
-    color: "#007AFF",
     fontSize: 14,
   },
   jobCard: {
-    backgroundColor: "#fff",
     padding: 16,
     borderRadius: 14,
     marginBottom: 12,
@@ -268,11 +442,9 @@ const styles = StyleSheet.create({
   jobTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#222",
   },
   jobLocation: {
     fontSize: 14,
-    color: "#666",
     marginTop: 3,
   },
   jobStatus: {
@@ -280,7 +452,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   invoiceCard: {
-    backgroundColor: "#fff",
     borderRadius: 16,
     padding: 16,
     marginTop: 20,
@@ -303,15 +474,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flex: 1,
   },
-  invoiceLabel: {
-    color: "#6b7280",
-  },
+  invoiceLabel: {},
   invoiceAmount: {
     fontSize: 24,
     fontWeight: "700",
   },
   jobsgraphCard: {
-    backgroundColor: "#fff",
     borderRadius: 16,
     padding: 16,
     marginTop: 20,
@@ -320,7 +488,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  jobsgraphTitle:{
+  jobsgraphTitle: {
     fontSize: 18,
     fontWeight: "600",
     marginBottom: 12,
@@ -333,11 +501,9 @@ const styles = StyleSheet.create({
   emptyStateText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#666",
   },
   emptyStateSubtext: {
     fontSize: 14,
-    color: "#999",
     marginTop: 4,
   },
 });

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "../../src/auth/AuthContext";
+import { Ionicons } from "@expo/vector-icons";
 
 /**
  * Signup Screen
@@ -12,6 +13,9 @@ export default function SignupScreen() {
   const router = useRouter();
   const { signup } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -20,6 +24,7 @@ export default function SignupScreen() {
     confirmPassword: "",
     phone: "",
     role: "employee" as "employee" | "admin" | "customer",
+    companyCode: "",
   });
 
   const handleSignup = async () => {
@@ -31,6 +36,11 @@ export default function SignupScreen() {
 
     if (!formData.email.trim()) {
       Alert.alert("Error", "Please enter your email");
+      return;
+    }
+
+    if (formData.role === "employee" && !formData.companyCode.trim()) {
+      Alert.alert("Error", "Please enter your company code");
       return;
     }
 
@@ -52,25 +62,27 @@ export default function SignupScreen() {
     setLoading(true);
     try {
       // Create account with Firebase
-      await signup(formData.email, formData.password, formData.role);
-
-      // Show success and navigate based on role
-      Alert.alert(
-        "Success",
-        "Account created successfully!",
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              if (formData.role === "admin") {
-                router.replace("/(admin)/dashboard" as any);
-              } else {
-                router.replace("/(app)/dashboard");
-              }
-            },
-          },
-        ]
+      await signup(
+        formData.email,
+        formData.password,
+        formData.role,
+        formData.role === "employee" ? formData.companyCode : undefined
       );
+
+      // Show success message
+      setShowSuccess(true);
+
+      // Navigate after a short delay
+      setTimeout(() => {
+        if (formData.role === "admin") {
+          router.replace("/(admin)/dashboard" as any);
+        } else if (formData.role === "employee") {
+          // Employee will be pending, redirect to pending approval screen
+          router.replace("/(app)/pending-approval");
+        } else {
+          router.replace("/(app)/dashboard");
+        }
+      }, 1500);
     } catch (error: any) {
       Alert.alert("Signup Failed", error.message || "Failed to create account");
     } finally {
@@ -171,25 +183,65 @@ export default function SignupScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Company Code Input (Employee Only) */}
+        {formData.role === "employee" && (
+          <>
+            <Text style={styles.label}>Company Code</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter code from your employer"
+              value={formData.companyCode}
+              onChangeText={(text) =>
+                setFormData({ ...formData, companyCode: text.toUpperCase() })
+              }
+              autoCapitalize="characters"
+            />
+          </>
+        )}
+
         {/* Password Input */}
         <Text style={styles.label}>Password</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="At least 6 characters"
-          value={formData.password}
-          onChangeText={(text) => setFormData({ ...formData, password: text })}
-          secureTextEntry
-        />
+        <View style={styles.passwordContainer}>
+          <TextInput
+            style={styles.passwordInput}
+            placeholder="At least 6 characters"
+            value={formData.password}
+            onChangeText={(text) => setFormData({ ...formData, password: text })}
+            secureTextEntry={!showPassword}
+          />
+          <TouchableOpacity
+            style={styles.eyeButton}
+            onPress={() => setShowPassword(!showPassword)}
+          >
+            <Ionicons
+              name={showPassword ? "eye-off-outline" : "eye-outline"}
+              size={22}
+              color="#666"
+            />
+          </TouchableOpacity>
+        </View>
 
         {/* Confirm Password Input */}
         <Text style={styles.label}>Confirm Password</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Re-enter your password"
-          value={formData.confirmPassword}
-          onChangeText={(text) => setFormData({ ...formData, confirmPassword: text })}
-          secureTextEntry
-        />
+        <View style={styles.passwordContainer}>
+          <TextInput
+            style={styles.passwordInput}
+            placeholder="Re-enter your password"
+            value={formData.confirmPassword}
+            onChangeText={(text) => setFormData({ ...formData, confirmPassword: text })}
+            secureTextEntry={!showConfirmPassword}
+          />
+          <TouchableOpacity
+            style={styles.eyeButton}
+            onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+          >
+            <Ionicons
+              name={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
+              size={22}
+              color="#666"
+            />
+          </TouchableOpacity>
+        </View>
 
         {/* Signup Button */}
         <TouchableOpacity
@@ -211,6 +263,16 @@ export default function SignupScreen() {
         >
           <Text style={styles.linkText}>Already have an account? Log in</Text>
         </TouchableOpacity>
+
+        {/* Success Message */}
+        {showSuccess && (
+          <View style={styles.successContainer}>
+            <Ionicons name="checkmark-circle" size={24} color="#34C759" />
+            <Text style={styles.successText}>
+              Account created successfully! Redirecting...
+            </Text>
+          </View>
+        )}
       </View>
     </ScrollView>
   );
@@ -252,6 +314,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     marginBottom: 16,
     fontSize: 16,
+  },
+  passwordContainer: {
+    position: "relative",
+    marginBottom: 16,
+  },
+  passwordInput: {
+    height: 48,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingRight: 48,
+    fontSize: 16,
+  },
+  eyeButton: {
+    position: "absolute",
+    right: 12,
+    top: 13,
+    padding: 4,
   },
   roleButtonsContainer: {
     flexDirection: "row",
@@ -306,5 +387,20 @@ const styles = StyleSheet.create({
     color: "#007AFF",
     fontSize: 14,
     fontWeight: "500",
+  },
+  successContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#E8F5E9",
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+    gap: 12,
+  },
+  successText: {
+    color: "#34C759",
+    fontSize: 15,
+    fontWeight: "600",
   },
 });

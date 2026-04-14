@@ -40,6 +40,12 @@ export default function AdminMoreScreen() {
       onPress: () => router.push("/(admin)/more/manage-team"),
     },
     {
+      icon: "hourglass-outline",
+      title: "Pending Employees",
+      subtitle: "Review and approve new employees",
+      onPress: () => router.push("/(admin)/more/pending-employees"),
+    },
+    {
       icon: "business-outline",
       title: "Company Settings",
       subtitle: "Business info and preferences",

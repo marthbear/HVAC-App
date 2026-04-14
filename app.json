@@ -10,7 +10,13 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.nicholaslarson.hvacapp"
+      "bundleIdentifier": "com.nicholaslarson.hvacapp",
+      "infoPlist": {
+        "UIBackgroundModes": ["location", "fetch"],
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "HVAC Pro needs your location to track technician positions while clocked in.",
+        "NSLocationWhenInUseUsageDescription": "HVAC Pro needs your location to show your position on the map.",
+        "NSLocationAlwaysUsageDescription": "HVAC Pro needs background location to track your position while working."
+      }
     },
     "android": {
       "package": "com.nicholaslarson.hvacapp",
@@ -21,7 +27,14 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
+      ]
     },
     "web": {
       "output": "static",
@@ -39,6 +52,16 @@
           "dark": {
             "backgroundColor": "#000000"
           }
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "HVAC Pro needs your location to track technician positions while clocked in for optimized job scheduling.",
+          "locationAlwaysPermission": "HVAC Pro needs background location access to track your position while you're working.",
+          "locationWhenInUsePermission": "HVAC Pro needs your location to show your position on the map.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isIosBackgroundLocationEnabled": true
         }
       ]
     ],

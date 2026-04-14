@@ -11,9 +11,42 @@ import {
   onAuthStateChanged,
   User as FirebaseUser,
 } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, DocumentData, collection, query, where, getDocs } from "firebase/firestore";
 import { auth, db } from "../config/firebase";
 import { AuthUser, UserRole } from "./auth.types";
+
+/**
+ * Firestore user document structure
+ */
+type UserDocument = {
+  email: string;
+  role: UserRole;
+  companyId?: string;
+  status: "active" | "pending";
+  createdAt: string;
+};
+
+/**
+ * Company document structure
+ */
+type CompanyDocument = {
+  name: string;
+  companyCode: string;
+  adminId: string;
+  createdAt: string;
+};
+
+/**
+ * Generate a unique company code
+ */
+function generateCompanyCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // Removed similar looking chars
+  let code = "HVAC-";
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
 
 /**
  * Public interface for authentication context.
@@ -22,14 +55,18 @@ type AuthContextType = {
   user: AuthUser | null;
   isLoggedIn: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<UserRole>;
-  signup: (email: string, password: string, role: UserRole) => Promise<void>;
+  login: (email: string, password: string) => Promise<{ role: UserRole; status: "active" | "pending" }>;
+  signup: (email: string, password: string, role: UserRole, companyCode?: string) => Promise<void>;
   logout: () => Promise<void>;
 
   // Role helpers
   isEmployee: boolean;
   isAdmin: boolean;
   isCustomer: boolean;
+
+  // Company and status
+  companyId?: string;
+  status?: "active" | "pending";
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -41,6 +78,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Holds the authenticated user (null = logged out)
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [companyId, setCompanyId] = useState<string | undefined>(undefined);
+  const [status, setStatus] = useState<"active" | "pending" | undefined>(undefined);
 
   /**
    * Listen to Firebase auth state changes.
@@ -51,7 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // User is signed in, get their role from Firestore
         try {
           const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
-          const userData = userDoc.data();
+          const userData = userDoc.data() as UserDocument | undefined;
 
           const authUser: AuthUser = {
             id: firebaseUser.uid,
@@ -60,13 +99,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           };
 
           setUser(authUser);
+          setCompanyId(userData?.companyId);
+          setStatus(userData?.status || "active");
         } catch (error) {
           console.error("Error fetching user data:", error);
           setUser(null);
+          setCompanyId(undefined);
+          setStatus(undefined);
         }
       } else {
         // User is signed out
         setUser(null);
+        setCompanyId(undefined);
+        setStatus(undefined);
       }
       setIsLoading(false);
     });
@@ -78,19 +123,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   /**
    * Sign in with email and password.
    */
-  const login = async (email: string, password: string): Promise<UserRole> => {
+  const login = async (email: string, password: string): Promise<{ role: UserRole; status: "active" | "pending" }> => {
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      console.log("Attempting login for:", email);
 
-      // Fetch user role from Firestore
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      console.log("Login successful, user ID:", userCredential.user.uid);
+
+      // Fetch user role and status from Firestore
       const userDoc = await getDoc(doc(db, "users", userCredential.user.uid));
-      const userData = userDoc.data();
+      const userData = userDoc.data() as UserDocument | undefined;
       const role = userData?.role || "customer";
+      const status = userData?.status || "active";
+
+      console.log("User role:", role, "Status:", status);
 
       // onAuthStateChanged will handle setting the user state
-      return role;
+      return { role, status };
     } catch (error: any) {
-      console.error("Login error:", error);
+      console.error("Login error details:", {
+        message: error.message,
+        code: error.code,
+        email: email,
+        fullError: error,
+      });
 
       // Provide user-friendly error messages
       let errorMessage = "Failed to log in";
@@ -114,24 +170,90 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   /**
    * Create a new user account.
    */
-  const signup = async (email: string, password: string, role: UserRole) => {
+  const signup = async (email: string, password: string, role: UserRole, companyCode?: string) => {
     try {
+      console.log("Starting signup for:", email, "as", role);
+
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         email,
         password
       );
 
-      // Store user role in Firestore
-      await setDoc(doc(db, "users", userCredential.user.uid), {
-        email,
-        role,
-        createdAt: new Date().toISOString(),
-      });
+      const userId = userCredential.user.uid;
+      console.log("User created in Firebase Auth:", userId);
+
+      // Handle different roles
+      if (role === "admin") {
+        console.log("Creating company for admin...");
+        // Admin: Create company with unique code
+        const newCompanyCode = generateCompanyCode();
+        const companyRef = doc(collection(db, "companies"));
+        const companyId = companyRef.id;
+
+        await setDoc(companyRef, {
+          name: "My HVAC Company", // Default name, can be updated in settings
+          companyCode: newCompanyCode,
+          adminId: userId,
+          createdAt: new Date().toISOString(),
+        } as CompanyDocument);
+
+        console.log("Company created:", companyId, "with code:", newCompanyCode);
+
+        // Create admin user with company
+        await setDoc(doc(db, "users", userId), {
+          email,
+          role,
+          companyId,
+          status: "active",
+          createdAt: new Date().toISOString(),
+        } as UserDocument);
+
+        console.log("Admin user document created");
+      } else if (role === "employee") {
+        // Employee: Validate company code and create pending user
+        if (!companyCode) {
+          throw new Error("Company code is required for employees");
+        }
+
+        // Find company by code
+        const companiesRef = collection(db, "companies");
+        const q = query(companiesRef, where("companyCode", "==", companyCode.trim().toUpperCase()));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+          throw new Error("Invalid company code. Please check with your administrator.");
+        }
+
+        const companyDoc = querySnapshot.docs[0];
+        const companyId = companyDoc.id;
+
+        // Create employee user with pending status
+        await setDoc(doc(db, "users", userId), {
+          email,
+          role,
+          companyId,
+          status: "pending",
+          createdAt: new Date().toISOString(),
+        } as UserDocument);
+      } else {
+        // Customer: No company association needed
+        await setDoc(doc(db, "users", userId), {
+          email,
+          role,
+          status: "active",
+          createdAt: new Date().toISOString(),
+        } as UserDocument);
+      }
 
       // onAuthStateChanged will handle setting the user
+      console.log("Signup completed successfully");
     } catch (error: any) {
-      console.error("Signup error:", error);
+      console.error("Signup error details:", {
+        message: error.message,
+        code: error.code,
+        fullError: error,
+      });
 
       // Provide user-friendly error messages
       let errorMessage = "Failed to create account";
@@ -179,6 +301,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isEmployee: user?.role === "employee",
         isAdmin: user?.role === "admin",
         isCustomer: user?.role === "customer",
+
+        // Company and status
+        companyId,
+        status,
       }}
     >
       {children}

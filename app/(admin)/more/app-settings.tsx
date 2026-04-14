@@ -10,8 +10,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "@/src/theme/ThemeContext";
 
 export default function AppSettingsScreen() {
+  const { theme, isDark, toggleTheme } = useTheme();
+
   // Notification settings
   const [pushNotifications, setPushNotifications] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
@@ -20,7 +23,6 @@ export default function AppSettingsScreen() {
   const [scheduleUpdates, setScheduleUpdates] = useState(true);
 
   // Display settings
-  const [darkMode, setDarkMode] = useState(false);
   const [compactView, setCompactView] = useState(false);
   const [showJobPhotos, setShowJobPhotos] = useState(true);
 
@@ -55,13 +57,12 @@ export default function AppSettingsScreen() {
           text: "Reset",
           style: "destructive",
           onPress: () => {
-            // Reset all settings to default
             setPushNotifications(true);
             setEmailNotifications(true);
             setSmsNotifications(false);
             setNewJobAlerts(true);
             setScheduleUpdates(true);
-            setDarkMode(false);
+            if (isDark) toggleTheme();
             setCompactView(false);
             setShowJobPhotos(true);
             setAutoSync(true);
@@ -74,21 +75,21 @@ export default function AppSettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
       >
         {/* Notifications Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Notifications</Text>
+        <View style={[styles.section, { backgroundColor: theme.surface }]}>
+          <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Notifications</Text>
 
           <View style={styles.settingRow}>
             <View style={styles.settingLeft}>
-              <Ionicons name="notifications-outline" size={22} color="#007AFF" />
+              <Ionicons name="notifications-outline" size={22} color={theme.primary} />
               <View style={styles.settingText}>
-                <Text style={styles.settingLabel}>Push Notifications</Text>
-                <Text style={styles.settingDescription}>
+                <Text style={[styles.settingLabel, { color: theme.text }]}>Push Notifications</Text>
+                <Text style={[styles.settingDescription, { color: theme.textSecondary }]}>
                   Receive push notifications on this device
                 </Text>
               </View>
@@ -96,17 +97,17 @@ export default function AppSettingsScreen() {
             <Switch
               value={pushNotifications}
               onValueChange={setPushNotifications}
-              trackColor={{ false: "#e5e5e5", true: "#007AFF" }}
+              trackColor={{ false: theme.border, true: theme.primary }}
               thumbColor="#fff"
             />
           </View>
 
           <View style={styles.settingRow}>
             <View style={styles.settingLeft}>
-              <Ionicons name="mail-outline" size={22} color="#007AFF" />
+              <Ionicons name="mail-outline" size={22} color={theme.primary} />
               <View style={styles.settingText}>
-                <Text style={styles.settingLabel}>Email Notifications</Text>
-                <Text style={styles.settingDescription}>
+                <Text style={[styles.settingLabel, { color: theme.text }]}>Email Notifications</Text>
+                <Text style={[styles.settingDescription, { color: theme.textSecondary }]}>
                   Receive updates via email
                 </Text>
               </View>
@@ -114,17 +115,17 @@ export default function AppSettingsScreen() {
             <Switch
               value={emailNotifications}
               onValueChange={setEmailNotifications}
-              trackColor={{ false: "#e5e5e5", true: "#007AFF" }}
+              trackColor={{ false: theme.border, true: theme.primary }}
               thumbColor="#fff"
             />
           </View>
 
           <View style={styles.settingRow}>
             <View style={styles.settingLeft}>
-              <Ionicons name="chatbox-outline" size={22} color="#007AFF" />
+              <Ionicons name="chatbox-outline" size={22} color={theme.primary} />
               <View style={styles.settingText}>
-                <Text style={styles.settingLabel}>SMS Notifications</Text>
-                <Text style={styles.settingDescription}>
+                <Text style={[styles.settingLabel, { color: theme.text }]}>SMS Notifications</Text>
+                <Text style={[styles.settingDescription, { color: theme.textSecondary }]}>
                   Receive important alerts via text
                 </Text>
               </View>
@@ -132,19 +133,19 @@ export default function AppSettingsScreen() {
             <Switch
               value={smsNotifications}
               onValueChange={setSmsNotifications}
-              trackColor={{ false: "#e5e5e5", true: "#007AFF" }}
+              trackColor={{ false: theme.border, true: theme.primary }}
               thumbColor="#fff"
             />
           </View>
 
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: theme.borderLight }]} />
 
           <View style={styles.settingRow}>
             <View style={styles.settingLeft}>
-              <Ionicons name="briefcase-outline" size={22} color="#007AFF" />
+              <Ionicons name="briefcase-outline" size={22} color={theme.primary} />
               <View style={styles.settingText}>
-                <Text style={styles.settingLabel}>New Job Alerts</Text>
-                <Text style={styles.settingDescription}>
+                <Text style={[styles.settingLabel, { color: theme.text }]}>New Job Alerts</Text>
+                <Text style={[styles.settingDescription, { color: theme.textSecondary }]}>
                   Notify when new jobs are assigned
                 </Text>
               </View>
@@ -152,17 +153,17 @@ export default function AppSettingsScreen() {
             <Switch
               value={newJobAlerts}
               onValueChange={setNewJobAlerts}
-              trackColor={{ false: "#e5e5e5", true: "#007AFF" }}
+              trackColor={{ false: theme.border, true: theme.primary }}
               thumbColor="#fff"
             />
           </View>
 
           <View style={styles.settingRow}>
             <View style={styles.settingLeft}>
-              <Ionicons name="calendar-outline" size={22} color="#007AFF" />
+              <Ionicons name="calendar-outline" size={22} color={theme.primary} />
               <View style={styles.settingText}>
-                <Text style={styles.settingLabel}>Schedule Updates</Text>
-                <Text style={styles.settingDescription}>
+                <Text style={[styles.settingLabel, { color: theme.text }]}>Schedule Updates</Text>
+                <Text style={[styles.settingDescription, { color: theme.textSecondary }]}>
                   Notify when schedule changes occur
                 </Text>
               </View>
@@ -170,40 +171,40 @@ export default function AppSettingsScreen() {
             <Switch
               value={scheduleUpdates}
               onValueChange={setScheduleUpdates}
-              trackColor={{ false: "#e5e5e5", true: "#007AFF" }}
+              trackColor={{ false: theme.border, true: theme.primary }}
               thumbColor="#fff"
             />
           </View>
         </View>
 
         {/* Display Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Display</Text>
+        <View style={[styles.section, { backgroundColor: theme.surface }]}>
+          <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Display</Text>
 
           <View style={styles.settingRow}>
             <View style={styles.settingLeft}>
-              <Ionicons name="moon-outline" size={22} color="#007AFF" />
+              <Ionicons name="moon-outline" size={22} color={theme.primary} />
               <View style={styles.settingText}>
-                <Text style={styles.settingLabel}>Dark Mode</Text>
-                <Text style={styles.settingDescription}>
+                <Text style={[styles.settingLabel, { color: theme.text }]}>Dark Mode</Text>
+                <Text style={[styles.settingDescription, { color: theme.textSecondary }]}>
                   Use dark theme throughout the app
                 </Text>
               </View>
             </View>
             <Switch
-              value={darkMode}
-              onValueChange={setDarkMode}
-              trackColor={{ false: "#e5e5e5", true: "#007AFF" }}
+              value={isDark}
+              onValueChange={toggleTheme}
+              trackColor={{ false: theme.border, true: theme.primary }}
               thumbColor="#fff"
             />
           </View>
 
           <View style={styles.settingRow}>
             <View style={styles.settingLeft}>
-              <Ionicons name="contract-outline" size={22} color="#007AFF" />
+              <Ionicons name="contract-outline" size={22} color={theme.primary} />
               <View style={styles.settingText}>
-                <Text style={styles.settingLabel}>Compact View</Text>
-                <Text style={styles.settingDescription}>
+                <Text style={[styles.settingLabel, { color: theme.text }]}>Compact View</Text>
+                <Text style={[styles.settingDescription, { color: theme.textSecondary }]}>
                   Show more items on screen
                 </Text>
               </View>
@@ -211,17 +212,17 @@ export default function AppSettingsScreen() {
             <Switch
               value={compactView}
               onValueChange={setCompactView}
-              trackColor={{ false: "#e5e5e5", true: "#007AFF" }}
+              trackColor={{ false: theme.border, true: theme.primary }}
               thumbColor="#fff"
             />
           </View>
 
           <View style={styles.settingRow}>
             <View style={styles.settingLeft}>
-              <Ionicons name="image-outline" size={22} color="#007AFF" />
+              <Ionicons name="image-outline" size={22} color={theme.primary} />
               <View style={styles.settingText}>
-                <Text style={styles.settingLabel}>Show Job Photos</Text>
-                <Text style={styles.settingDescription}>
+                <Text style={[styles.settingLabel, { color: theme.text }]}>Show Job Photos</Text>
+                <Text style={[styles.settingDescription, { color: theme.textSecondary }]}>
                   Display photos in job listings
                 </Text>
               </View>
@@ -229,22 +230,22 @@ export default function AppSettingsScreen() {
             <Switch
               value={showJobPhotos}
               onValueChange={setShowJobPhotos}
-              trackColor={{ false: "#e5e5e5", true: "#007AFF" }}
+              trackColor={{ false: theme.border, true: theme.primary }}
               thumbColor="#fff"
             />
           </View>
         </View>
 
         {/* Data & Storage Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Data & Storage</Text>
+        <View style={[styles.section, { backgroundColor: theme.surface }]}>
+          <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Data & Storage</Text>
 
           <View style={styles.settingRow}>
             <View style={styles.settingLeft}>
-              <Ionicons name="sync-outline" size={22} color="#007AFF" />
+              <Ionicons name="sync-outline" size={22} color={theme.primary} />
               <View style={styles.settingText}>
-                <Text style={styles.settingLabel}>Auto Sync</Text>
-                <Text style={styles.settingDescription}>
+                <Text style={[styles.settingLabel, { color: theme.text }]}>Auto Sync</Text>
+                <Text style={[styles.settingDescription, { color: theme.textSecondary }]}>
                   Automatically sync data in background
                 </Text>
               </View>
@@ -252,17 +253,17 @@ export default function AppSettingsScreen() {
             <Switch
               value={autoSync}
               onValueChange={setAutoSync}
-              trackColor={{ false: "#e5e5e5", true: "#007AFF" }}
+              trackColor={{ false: theme.border, true: theme.primary }}
               thumbColor="#fff"
             />
           </View>
 
           <View style={styles.settingRow}>
             <View style={styles.settingLeft}>
-              <Ionicons name="cloud-offline-outline" size={22} color="#007AFF" />
+              <Ionicons name="cloud-offline-outline" size={22} color={theme.primary} />
               <View style={styles.settingText}>
-                <Text style={styles.settingLabel}>Offline Mode</Text>
-                <Text style={styles.settingDescription}>
+                <Text style={[styles.settingLabel, { color: theme.text }]}>Offline Mode</Text>
+                <Text style={[styles.settingDescription, { color: theme.textSecondary }]}>
                   Enable offline data access
                 </Text>
               </View>
@@ -270,7 +271,7 @@ export default function AppSettingsScreen() {
             <Switch
               value={offlineMode}
               onValueChange={setOfflineMode}
-              trackColor={{ false: "#e5e5e5", true: "#007AFF" }}
+              trackColor={{ false: theme.border, true: theme.primary }}
               thumbColor="#fff"
             />
           </View>
@@ -280,73 +281,73 @@ export default function AppSettingsScreen() {
             onPress={handleClearCache}
           >
             <View style={styles.settingLeft}>
-              <Ionicons name="trash-outline" size={22} color="#007AFF" />
-              <Text style={styles.actionLabel}>Clear Cache</Text>
+              <Ionicons name="trash-outline" size={22} color={theme.primary} />
+              <Text style={[styles.actionLabel, { color: theme.text }]}>Clear Cache</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#999" />
+            <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />
           </TouchableOpacity>
         </View>
 
         {/* Language & Region Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Language & Region</Text>
+        <View style={[styles.section, { backgroundColor: theme.surface }]}>
+          <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Language & Region</Text>
 
           <TouchableOpacity style={styles.actionRow}>
             <View style={styles.settingLeft}>
-              <Ionicons name="language-outline" size={22} color="#007AFF" />
-              <Text style={styles.actionLabel}>Language</Text>
+              <Ionicons name="language-outline" size={22} color={theme.primary} />
+              <Text style={[styles.actionLabel, { color: theme.text }]}>Language</Text>
             </View>
             <View style={styles.actionRight}>
-              <Text style={styles.actionValue}>English</Text>
-              <Ionicons name="chevron-forward" size={20} color="#999" />
+              <Text style={[styles.actionValue, { color: theme.textSecondary }]}>English</Text>
+              <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />
             </View>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionRow}>
             <View style={styles.settingLeft}>
-              <Ionicons name="location-outline" size={22} color="#007AFF" />
-              <Text style={styles.actionLabel}>Region</Text>
+              <Ionicons name="location-outline" size={22} color={theme.primary} />
+              <Text style={[styles.actionLabel, { color: theme.text }]}>Region</Text>
             </View>
             <View style={styles.actionRight}>
-              <Text style={styles.actionValue}>United States</Text>
-              <Ionicons name="chevron-forward" size={20} color="#999" />
+              <Text style={[styles.actionValue, { color: theme.textSecondary }]}>United States</Text>
+              <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />
             </View>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionRow}>
             <View style={styles.settingLeft}>
-              <Ionicons name="time-outline" size={22} color="#007AFF" />
-              <Text style={styles.actionLabel}>Time Format</Text>
+              <Ionicons name="time-outline" size={22} color={theme.primary} />
+              <Text style={[styles.actionLabel, { color: theme.text }]}>Time Format</Text>
             </View>
             <View style={styles.actionRight}>
-              <Text style={styles.actionValue}>12-hour</Text>
-              <Ionicons name="chevron-forward" size={20} color="#999" />
+              <Text style={[styles.actionValue, { color: theme.textSecondary }]}>12-hour</Text>
+              <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />
             </View>
           </TouchableOpacity>
         </View>
 
         {/* Advanced Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Advanced</Text>
+        <View style={[styles.section, { backgroundColor: theme.surface }]}>
+          <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Advanced</Text>
 
           <TouchableOpacity
             style={styles.actionRow}
             onPress={handleResetSettings}
           >
             <View style={styles.settingLeft}>
-              <Ionicons name="refresh-outline" size={22} color="#FF3B30" />
-              <Text style={[styles.actionLabel, { color: "#FF3B30" }]}>
+              <Ionicons name="refresh-outline" size={22} color={theme.error} />
+              <Text style={[styles.actionLabel, { color: theme.error }]}>
                 Reset Settings
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#999" />
+            <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />
           </TouchableOpacity>
         </View>
 
         {/* App Info */}
         <View style={styles.infoSection}>
-          <Text style={styles.infoText}>App Version 1.0.0</Text>
-          <Text style={styles.infoText}>Build 2025.12.26</Text>
+          <Text style={[styles.infoText, { color: theme.textMuted }]}>App Version 1.0.0</Text>
+          <Text style={[styles.infoText, { color: theme.textMuted }]}>Build 2025.12.26</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -356,7 +357,6 @@ export default function AppSettingsScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#f7f7f7",
   },
   container: {
     flex: 1,
@@ -365,7 +365,6 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   section: {
-    backgroundColor: "#fff",
     marginTop: 20,
     paddingHorizontal: 20,
     paddingVertical: 12,
@@ -373,7 +372,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#666",
     textTransform: "uppercase",
     letterSpacing: 0.5,
     marginBottom: 12,
@@ -397,16 +395,13 @@ const styles = StyleSheet.create({
   settingLabel: {
     fontSize: 16,
     fontWeight: "500",
-    color: "#000",
     marginBottom: 2,
   },
   settingDescription: {
     fontSize: 13,
-    color: "#666",
   },
   divider: {
     height: 1,
-    backgroundColor: "#f0f0f0",
     marginVertical: 8,
   },
   actionRow: {
@@ -418,7 +413,6 @@ const styles = StyleSheet.create({
   actionLabel: {
     fontSize: 16,
     fontWeight: "500",
-    color: "#000",
   },
   actionRight: {
     flexDirection: "row",
@@ -427,7 +421,6 @@ const styles = StyleSheet.create({
   },
   actionValue: {
     fontSize: 15,
-    color: "#666",
   },
   infoSection: {
     alignItems: "center",
@@ -435,7 +428,6 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 13,
-    color: "#999",
     marginBottom: 4,
   },
 });

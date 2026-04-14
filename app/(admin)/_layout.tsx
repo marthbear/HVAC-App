@@ -113,7 +113,21 @@ export default function AdminLayout() {
       />
 
       <Tabs.Screen
+        name="inbox/[id]"
+        options={{
+          href: null, // Hides from tab bar
+        }}
+      />
+
+      <Tabs.Screen
         name="contacts/new-contact"
+        options={{
+          href: null, // Hides from tab bar
+        }}
+      />
+
+      <Tabs.Screen
+        name="completed-jobs"
         options={{
           href: null, // Hides from tab bar
         }}

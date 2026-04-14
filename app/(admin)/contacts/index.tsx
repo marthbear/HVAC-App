@@ -1,72 +1,68 @@
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { CUSTOMERS } from "@/src/auth/data/customers";
+import { useAuth } from "@/src/auth/AuthContext";
+import { getEmployeesForContacts, EmployeeContact } from "@/src/services/employeeService";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import React, { useState, useEffect } from "react";
+import {
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  ActivityIndicator,
+  Linking,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 type ContactType = "employees" | "customers";
 
-type Employee = {
-  id: string;
-  name: string;
-  phone: string;
-  email: string;
-  role: string;
-};
-
 export default function AdminContactsScreen() {
   const router = useRouter();
+  const { companyId } = useAuth();
   const [selectedTab, setSelectedTab] = useState<ContactType>("employees");
+  const [employees, setEmployees] = useState<EmployeeContact[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock employee data
-  const employees: Employee[] = [
-    {
-      id: "employee-001",
-      name: "John Smith",
-      phone: "(804) 555-0101",
-      email: "john.smith@hvac.com",
-      role: "Senior Technician",
-    },
-    {
-      id: "employee-002",
-      name: "Sarah Johnson",
-      phone: "(804) 555-0102",
-      email: "sarah.johnson@hvac.com",
-      role: "Technician",
-    },
-    {
-      id: "employee-003",
-      name: "Mike Williams",
-      phone: "(804) 555-0103",
-      email: "mike.williams@hvac.com",
-      role: "Junior Technician",
-    },
-    {
-      id: "employee-004",
-      name: "Emily Davis",
-      phone: "(804) 555-0104",
-      email: "emily.davis@hvac.com",
-      role: "Lead Technician",
-    },
-  ];
+  // Fetch employees from centralized service
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      if (!companyId) {
+        setLoading(false);
+        return;
+      }
 
-  const renderEmployee = ({ item }: { item: Employee }) => (
+      try {
+        const employeesList = await getEmployeesForContacts(companyId);
+        setEmployees(employeesList);
+      } catch (error) {
+        console.error("Error fetching employees:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEmployees();
+  }, [companyId]);
+
+  const handleCall = (phone: string) => {
+    if (phone) {
+      Linking.openURL(`tel:${phone}`);
+    }
+  };
+
+  const renderEmployee = ({ item }: { item: EmployeeContact }) => (
     <View style={styles.contactCard}>
       <View style={styles.contactInfo}>
         <Text style={styles.contactName}>{item.name}</Text>
-        <Text style={styles.contactRole}>{item.role}</Text>
+        <Text style={styles.contactRole}>{item.role || "Technician"}</Text>
 
-        <View style={styles.contactDetail}>
-          <Ionicons name="call-outline" size={16} color="#666" />
-          <Text style={styles.contactDetailText}>{item.phone}</Text>
-        </View>
+        {item.phone && (
+          <View style={styles.contactDetail}>
+            <Ionicons name="call-outline" size={16} color="#666" />
+            <Text style={styles.contactDetailText}>{item.phone}</Text>
+          </View>
+        )}
 
         <View style={styles.contactDetail}>
           <Ionicons name="mail-outline" size={16} color="#666" />
@@ -74,13 +70,17 @@ export default function AdminContactsScreen() {
         </View>
       </View>
 
-      <TouchableOpacity style={styles.callButton}>
-        <Ionicons name="call" size={20} color="#007AFF" />
+      <TouchableOpacity
+        style={styles.callButton}
+        onPress={() => handleCall(item.phone)}
+        disabled={!item.phone}
+      >
+        <Ionicons name="call" size={20} color={item.phone ? "#007AFF" : "#ccc"} />
       </TouchableOpacity>
     </View>
   );
 
-  const renderCustomer = ({ item }: { item: typeof CUSTOMERS[0] }) => (
+  const renderCustomer = ({ item }: { item: (typeof CUSTOMERS)[0] }) => (
     <View style={styles.contactCard}>
       <View style={styles.contactInfo}>
         <Text style={styles.contactName}>{item.name}</Text>
@@ -97,9 +97,22 @@ export default function AdminContactsScreen() {
         </View>
       </View>
 
-      <TouchableOpacity style={styles.callButton}>
+      <TouchableOpacity
+        style={styles.callButton}
+        onPress={() => handleCall(item.phone)}
+      >
         <Ionicons name="call" size={20} color="#007AFF" />
       </TouchableOpacity>
+    </View>
+  );
+
+  const renderEmptyState = () => (
+    <View style={styles.emptyState}>
+      <Ionicons name="people-outline" size={64} color="#ccc" />
+      <Text style={styles.emptyStateText}>No employees found</Text>
+      <Text style={styles.emptyStateSubtext}>
+        Employees will appear here once they join your company
+      </Text>
     </View>
   );
 
@@ -118,10 +131,7 @@ export default function AdminContactsScreen() {
       {/* Tab Selector */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
-          style={[
-            styles.tab,
-            selectedTab === "employees" && styles.tabActive,
-          ]}
+          style={[styles.tab, selectedTab === "employees" && styles.tabActive]}
           onPress={() => setSelectedTab("employees")}
         >
           <Text
@@ -130,15 +140,12 @@ export default function AdminContactsScreen() {
               selectedTab === "employees" && styles.tabTextActive,
             ]}
           >
-            Employees
+            Employees ({employees.length})
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[
-            styles.tab,
-            selectedTab === "customers" && styles.tabActive,
-          ]}
+          style={[styles.tab, selectedTab === "customers" && styles.tabActive]}
           onPress={() => setSelectedTab("customers")}
         >
           <Text
@@ -154,12 +161,21 @@ export default function AdminContactsScreen() {
 
       {/* Contact List */}
       {selectedTab === "employees" ? (
-        <FlatList
-          data={employees}
-          renderItem={renderEmployee}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-        />
+        loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#007AFF" />
+            <Text style={styles.loadingText}>Loading employees...</Text>
+          </View>
+        ) : employees.length === 0 ? (
+          renderEmptyState()
+        ) : (
+          <FlatList
+            data={employees}
+            renderItem={renderEmployee}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+          />
+        )
       ) : (
         <FlatList
           data={CUSTOMERS}
@@ -264,5 +280,34 @@ const styles = StyleSheet.create({
     backgroundColor: "#EEF5FF",
     alignItems: "center",
     justifyContent: "center",
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 16,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: "#666",
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#666",
+    marginTop: 16,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: "#999",
+    marginTop: 8,
+    textAlign: "center",
+    paddingHorizontal: 40,
   },
 });

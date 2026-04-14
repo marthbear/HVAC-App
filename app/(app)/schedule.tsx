@@ -169,63 +169,66 @@ export default function ScheduleScreen() {
       </View>
 
       {/* Week banner */}
-      <FlatList
-        ref={weekListRef}
-        data={weeks}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        initialScrollIndex={INITIAL_INDEX}
-        keyExtractor={(_, index) => index.toString()}
-        getItemLayout={(_, index) => ({
-          length: CONTENT_WIDTH,
-          offset: CONTENT_WIDTH * index,
-          index,
-        })}
-        contentContainerStyle={styles.weekList}
-        onMomentumScrollEnd={(e) => {
-          const index = Math.round(
-            e.nativeEvent.contentOffset.x / CONTENT_WIDTH
-          );
-          const week = weeks[index];
-          handleDayChange(week[selectedDate.getDay()]);
-        }}
-        renderItem={({ item: week }: { item: Week }) => (
-          <View style={styles.weekRow}>
-            {week.map((day: Date) => {
-              const isSelected =
-                day.toDateString() === selectedDate.toDateString();
+      <View style={styles.weekContainer}>
+        <FlatList
+          ref={weekListRef}
+          data={weeks}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          initialScrollIndex={INITIAL_INDEX}
+          keyExtractor={(_, index) => index.toString()}
+          getItemLayout={(_, index) => ({
+            length: CONTENT_WIDTH,
+            offset: CONTENT_WIDTH * index,
+            index,
+          })}
+          contentContainerStyle={styles.weekList}
+          onMomentumScrollEnd={(e) => {
+            const index = Math.round(
+              e.nativeEvent.contentOffset.x / CONTENT_WIDTH
+            );
+            const week = weeks[index];
+            handleDayChange(week[selectedDate.getDay()]);
+          }}
+          renderItem={({ item: week }: { item: Week }) => (
+            <View style={styles.weekRow}>
+              {week.map((day: Date) => {
+                const isSelected =
+                  day.toDateString() === selectedDate.toDateString();
 
-              return (
-                <TouchableOpacity
-                  key={day.toISOString()}
-                  style={[styles.dayItem, isSelected && styles.dayItemSelected]}
-                  onPress={() => handleDayChange(day)}
-                >
-                  <Text
-                    style={[
-                      styles.dayLabel,
-                      isSelected && styles.dayLabelSelected,
-                    ]}
+                return (
+                  <TouchableOpacity
+                    key={day.toISOString()}
+                    style={[styles.dayItem, isSelected && styles.dayItemSelected]}
+                    onPress={() => handleDayChange(day)}
                   >
-                    {day.toLocaleDateString("en-US", {
-                      weekday: "short",
-                    })}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.dateLabel,
-                      isSelected && styles.dateLabelSelected,
-                    ]}
-                  >
-                    {day.getDate()}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        )}
-      />
+                    <Text
+                      style={[
+                        styles.dayLabel,
+                        isSelected && styles.dayLabelSelected,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {day.toLocaleDateString("en-US", {
+                        weekday: "short",
+                      })}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.dateLabel,
+                        isSelected && styles.dateLabelSelected,
+                      ]}
+                    >
+                      {day.getDate()}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        />
+      </View>
 
       {/* Date label */}
       <View style={styles.dateLabelContainer}>
@@ -330,6 +333,9 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
+  weekContainer: {
+    marginBottom: 20,
+  },
   weekList: {
     paddingVertical: 4,
   },
@@ -344,6 +350,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingTop: 10,
     paddingBottom: 10,
+    paddingHorizontal: 4,
     borderRadius: 10,
   },
   dayItemSelected: {
@@ -371,7 +378,8 @@ const styles = StyleSheet.create({
     height: 24,
     justifyContent: "center",
     overflow: "hidden",
-    marginVertical: 12,
+    marginTop: 16,
+    marginBottom: 12,
   },
   fullDate: {
     fontSize: 16,
