@@ -1,5 +1,7 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { Provider } from "react-redux";
+import { store } from "../src/store";
 import { AuthProvider } from "../src/auth/AuthContext";
 import { ThemeProvider, useTheme } from "../src/theme/ThemeContext";
 
@@ -22,10 +24,12 @@ function ThemedLayout() {
  */
 export default function RootLayout() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <ThemedLayout />
-      </AuthProvider>
-    </ThemeProvider>
+    <Provider store={store}>
+      <ThemeProvider>
+        <AuthProvider>
+          <ThemedLayout />
+        </AuthProvider>
+      </ThemeProvider>
+    </Provider>
   );
 }

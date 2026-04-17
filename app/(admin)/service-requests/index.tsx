@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import {
   View,
   Text,
@@ -9,29 +9,30 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { useAppDispatch, useAppSelector } from "@/src/store/hooks";
 import {
-  getServiceRequests,
-  ServiceRequest,
-} from "@/src/auth/data/serviceRequests";
+  fetchServiceRequests,
+  selectAllRequests,
+  selectRequestsStatus,
+} from "@/src/store/slices/serviceRequestsSlice";
+import { ServiceRequest } from "@/src/auth/data/serviceRequests";
 
 export default function ServiceRequestsScreen() {
   const router = useRouter();
-  const [refreshing, setRefreshing] = useState(false);
-  const [requests, setRequests] = useState<ServiceRequest[]>([]);
-
-  const loadRequests = async () => {
-    const allRequests = await getServiceRequests();
-    setRequests(allRequests);
-  };
+  const dispatch = useAppDispatch();
+  const requests = useAppSelector(selectAllRequests);
+  const status = useAppSelector(selectRequestsStatus);
+  const refreshing = status === "loading";
 
   useEffect(() => {
-    loadRequests();
-  }, []);
+    // Only fetch if we haven't loaded yet
+    if (status === "idle") {
+      dispatch(fetchServiceRequests());
+    }
+  }, [dispatch, status]);
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadRequests();
-    setRefreshing(false);
+  const onRefresh = () => {
+    dispatch(fetchServiceRequests());
   };
 
   const timeSince = (submittedAt: string) => {
