@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView, Keyboard } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "../../src/auth/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
@@ -49,7 +49,10 @@ export default function LoginScreen(){
     };
 
     return (
-        <View style={styles.container}>
+        <ScrollView
+            contentContainerStyle={styles.container}
+            keyboardShouldPersistTaps="handled"
+        >
             {/*App Title and Logo*/ }
             <Text style={styles.title}>HVAC Service Portal</Text>
 
@@ -103,16 +106,16 @@ export default function LoginScreen(){
             >
                 <Text style={styles.linkText}>Don't have an account? Create one</Text>
             </TouchableOpacity>
-        </View>
+        </ScrollView>
     );
 
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1, 
-    justifyContent: "center", 
-    paddingHorizontal: 24, 
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingHorizontal: 24,
     backgroundColor: "#ffffff",
   },
   title: {

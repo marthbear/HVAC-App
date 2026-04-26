@@ -145,13 +145,11 @@ export default function HelpSupportScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={["bottom", "left", "right"]}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
       >
-        <Text style={styles.header}>Help & Support</Text>
-
         {/* Quick Actions */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>

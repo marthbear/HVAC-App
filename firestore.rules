@@ -4,11 +4,19 @@ service cloud.firestore {
     // Users collection - users can read/write their own document
     match /users/{userId} {
       allow read: if request.auth != null;
+
+      // Users can write to their own document
       allow write: if request.auth != null && request.auth.uid == userId;
 
-      // Allow admins to read all user data (for seeing employee locations)
-      allow read: if request.auth != null &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      // Allow admins to update users in their company (for approving/rejecting employees)
+      allow update: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == resource.data.companyId;
+
+      // Allow admins to delete users in their company (for rejecting employees)
+      allow delete: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == resource.data.companyId;
     }
 
     // Time entries - users can manage their own entries

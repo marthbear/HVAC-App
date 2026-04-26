@@ -2,55 +2,40 @@ import { Stack } from "expo-router";
 
 export default function MoreLayout() {
   return (
-    <Stack>
+    <Stack
+      screenOptions={{
+        headerShown: true,
+        headerBackTitle: "More",
+      }}
+    >
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen
         name="my-profile"
-        options={{
-          headerShown: true,
-          title: "My Profile",
-          headerBackTitle: "More",
-        }}
+        options={{ title: "My Profile" }}
       />
       <Stack.Screen
         name="time-tracking"
-        options={{
-          headerShown: true,
-          title: "Time Tracking",
-          headerBackTitle: "More",
-        }}
+        options={{ title: "Time Tracking" }}
       />
       <Stack.Screen
         name="my-schedule"
-        options={{
-          headerShown: true,
-          title: "My Schedule",
-          headerBackTitle: "More",
-        }}
+        options={{ title: "My Schedule" }}
       />
       <Stack.Screen
         name="app-settings"
-        options={{
-          headerShown: true,
-          title: "App Settings",
-          headerBackTitle: "More",
-        }}
+        options={{ title: "App Settings" }}
       />
       <Stack.Screen
         name="my-reports"
-        options={{
-          headerShown: true,
-          title: "My Reports",
-          headerBackTitle: "More",
-        }}
+        options={{ title: "My Reports" }}
       />
       <Stack.Screen
         name="help-support"
-        options={{
-          headerShown: true,
-          title: "Help & Support",
-          headerBackTitle: "More",
-        }}
+        options={{ title: "Help & Support" }}
+      />
+      <Stack.Screen
+        name="my-company"
+        options={{ title: "My Company" }}
       />
     </Stack>
   );

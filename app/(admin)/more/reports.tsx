@@ -80,14 +80,13 @@ export default function ReportsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={["bottom", "left", "right"]}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Header with Date Range Filter */}
+        {/* Date Range Filter */}
         <View style={styles.headerSection}>
-          <Text style={styles.header}>Business Reports</Text>
           <View style={styles.dateRangeContainer}>
             {(["week", "month", "quarter", "year"] as DateRange[]).map(
               (range) => (

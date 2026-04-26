@@ -14,7 +14,7 @@ export default function EmployeeLayout() {
   const hideTabBar =
     segments[1] === "customers" && segments.length > 2;
 
-  const { isLoggedIn, isLoading, isEmployee } = useAuth();
+  const { isLoggedIn, isLoading, isEmployee, status } = useAuth();
 
   // Prevent redirect while auth state is still loading
   if (isLoading) {
@@ -35,11 +35,18 @@ export default function EmployeeLayout() {
     return <Redirect href="/login" />;
   }
 
+  // Pending employees can only access pending-approval screen
+  // If they try to access other screens, redirect them
+  const currentScreen = segments[1];
+  if (status === "pending" && currentScreen !== "pending-approval") {
+    return <Redirect href="/(app)/pending-approval" />;
+  }
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: hideTabBar
+        tabBarStyle: hideTabBar || status === "pending"
           ? { display: "none" }
           : undefined,
         tabBarActiveTintColor: "#007AFF",
@@ -96,6 +103,14 @@ export default function EmployeeLayout() {
               color={color}
             />
           ),
+        }}
+      />
+
+      {/* Hidden screen for pending employee approval */}
+      <Tabs.Screen
+        name="pending-approval"
+        options={{
+          href: null, // Hide from tab bar
         }}
       />
     </Tabs>

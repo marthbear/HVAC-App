@@ -48,14 +48,13 @@ export default function MyProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={["bottom", "left", "right"]}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Header with Edit Button */}
+        {/* Edit Button */}
         <View style={styles.headerRow}>
-          <Text style={styles.header}>My Profile</Text>
           {!isEditing ? (
             <TouchableOpacity
               style={styles.editButton}

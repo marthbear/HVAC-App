@@ -13,10 +13,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, collection, setDoc } from "firebase/firestore";
 import { db } from "../../../src/config/firebase";
 import { useAuth } from "../../../src/auth/AuthContext";
-import { Stack } from "expo-router";
 
 type DayOfWeek = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
 
@@ -29,8 +28,8 @@ type BusinessHours = {
 };
 
 export default function CompanySettingsScreen() {
-  const { companyId } = useAuth();
-  const [loading, setLoading] = useState(true);
+  const { companyId, companyCode: authCompanyCode, user } = useAuth();
+  const [codeLoading, setCodeLoading] = useState(true);
   const [companyCode, setCompanyCode] = useState("");
 
   const [companyInfo, setCompanyInfo] = useState({
@@ -57,36 +56,62 @@ export default function CompanySettingsScreen() {
   const [autoInvoicing, setAutoInvoicing] = useState(true);
 
   useEffect(() => {
-    loadCompanyData();
-  }, [companyId]);
+    // If we have the code from auth context, use it immediately
+    if (authCompanyCode) {
+      console.log("Using company code from auth context:", authCompanyCode);
+      setCompanyCode(authCompanyCode);
+      setCodeLoading(false);
+    } else if (companyId) {
+      // Fallback: fetch from Firestore for legacy admins without code on user doc
+      console.log("Fetching company code from Firestore, companyId:", companyId);
+      loadCompanyData();
+    } else {
+      // No company exists for this admin - stop loading
+      console.log("No company linked - companyId:", companyId, "authCompanyCode:", authCompanyCode);
+      setCodeLoading(false);
+    }
+  }, [companyId, authCompanyCode]);
 
   const loadCompanyData = async () => {
     if (!companyId) {
       console.log("No companyId found in auth context");
-      setLoading(false);
+      setCodeLoading(false);
       return;
     }
 
+    setCodeLoading(true);
     try {
       console.log("Loading company data for ID:", companyId);
-      const companyDoc = await getDoc(doc(db, "companies", companyId));
+      const companyRef = doc(db, "companies", companyId);
+      console.log("Fetching document...");
+      const companyDoc = await getDoc(companyRef);
+      console.log("Document fetched, exists:", companyDoc.exists());
 
       if (companyDoc.exists()) {
         const data = companyDoc.data();
         console.log("Company data:", data);
-        setCompanyCode(data.companyCode || "");
+        const fetchedCode = data.companyCode || "";
+        setCompanyCode(fetchedCode);
         if (data.name) {
           setCompanyInfo((prev) => ({ ...prev, name: data.name }));
         }
+
+        // Migrate: save code to user document for instant loads next time
+        if (fetchedCode && user?.id && !authCompanyCode) {
+          const userRef = doc(db, "users", user.id);
+          updateDoc(userRef, { companyCode: fetchedCode }).catch((err) =>
+            console.log("Failed to migrate company code to user doc:", err)
+          );
+        }
       } else {
-        console.log("Company document does not exist");
-        Alert.alert("Error", "Company not found. Please contact support.");
+        console.log("Company document does not exist for ID:", companyId);
+        setCompanyCode("Not found");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error loading company data:", error);
-      Alert.alert("Error", "Failed to load company data");
+      setCompanyCode("Error loading");
     } finally {
-      setLoading(false);
+      setCodeLoading(false);
     }
   };
 
@@ -119,6 +144,60 @@ export default function CompanySettingsScreen() {
     return code;
   };
 
+  const createCompanyForAdmin = () => {
+    console.log("createCompanyForAdmin called");
+
+    Alert.alert(
+      "Create Company",
+      "This will create a new company and generate your employee invite code. Continue?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Create",
+          onPress: async () => {
+            if (!user?.id) {
+              Alert.alert("Error", "User not found. Please try logging out and back in.");
+              return;
+            }
+
+            setCodeLoading(true);
+            try {
+              const newCode = generateCompanyCode();
+              const companyRef = doc(collection(db, "companies"));
+              const newCompanyId = companyRef.id;
+
+              // Create company document
+              await setDoc(companyRef, {
+                name: "My HVAC Company",
+                companyCode: newCode,
+                adminId: user.id,
+                createdAt: new Date().toISOString(),
+              });
+
+              // Update user document with companyId and companyCode
+              const userRef = doc(db, "users", user.id);
+              await updateDoc(userRef, {
+                companyId: newCompanyId,
+                companyCode: newCode,
+              });
+
+              setCompanyCode(newCode);
+              Alert.alert(
+                "Company Created!",
+                `Your company code is: ${newCode}\n\nShare this code with employees so they can join your company.\n\nPlease restart the app for all changes to take effect.`
+              );
+            } catch (error: any) {
+              console.error("Error creating company:", error);
+              Alert.alert("Error", "Failed to create company. Please try again.");
+            } finally {
+              setCodeLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleRegenerateCode = async () => {
     Alert.alert(
       "Regenerate Company Code",
@@ -129,17 +208,22 @@ export default function CompanySettingsScreen() {
           text: "Regenerate",
           style: "destructive",
           onPress: async () => {
-            if (!companyId) return;
+            if (!companyId || !user?.id) return;
 
             try {
               const newCode = generateCompanyCode();
+
+              // Update both company and user documents
               const companyRef = doc(db, "companies", companyId);
-              await updateDoc(companyRef, {
-                companyCode: newCode,
-              });
+              const userRef = doc(db, "users", user.id);
+
+              await Promise.all([
+                updateDoc(companyRef, { companyCode: newCode }),
+                updateDoc(userRef, { companyCode: newCode }),
+              ]);
 
               setCompanyCode(newCode);
-              Alert.alert("Success", "Company code has been regenerated");
+              Alert.alert("Success", "Company code has been regenerated. Please restart the app to update everywhere.");
             } catch (error) {
               console.error("Error regenerating code:", error);
               Alert.alert("Error", "Failed to regenerate code");
@@ -160,65 +244,104 @@ export default function CompanySettingsScreen() {
     sunday: "Sunday",
   };
 
-  if (loading) {
-    return (
-      <>
-        <Stack.Screen options={{ title: "Company Settings", headerShown: true }} />
-        <SafeAreaView style={styles.safeArea}>
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#007AFF" />
-          </View>
-        </SafeAreaView>
-      </>
-    );
-  }
-
   return (
-    <>
-      <Stack.Screen options={{ title: "Company Settings", headerShown: true }} />
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView
-          style={styles.container}
-          contentContainerStyle={styles.scrollContent}
-        >
-          <Text style={styles.header}>Company Settings</Text>
-
+    <SafeAreaView style={styles.safeArea} edges={["bottom", "left", "right"]}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+      >
         {/* Company Code */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Company Code</Text>
           <Text style={styles.sectionDescription}>
             Share this code with employees so they can join your company
           </Text>
+          {__DEV__ && (
+            <Text style={{ fontSize: 10, color: "#999", marginBottom: 8 }}>
+              Debug: companyId={companyId || "none"}, authCode={authCompanyCode || "none"}
+            </Text>
+          )}
 
           <View style={styles.codeContainer}>
-            <View style={styles.codeBox}>
-              <Ionicons name="key-outline" size={24} color="#007AFF" />
-              <Text style={styles.codeText}>
-                {companyCode || "Loading..."}
-              </Text>
-            </View>
+            {!companyId ? (
+              // No company exists - show create button
+              <>
+                <View style={[styles.codeBox, { borderColor: "#FF9500", backgroundColor: "#FFF9E6" }]}>
+                  <Ionicons name="alert-circle-outline" size={24} color="#FF9500" />
+                  <Text style={styles.errorText}>No company linked to your account</Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.retryButton, { backgroundColor: "#007AFF", borderColor: "#007AFF" }]}
+                  onPress={createCompanyForAdmin}
+                  disabled={codeLoading}
+                >
+                  {codeLoading ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <>
+                      <Ionicons name="add-circle-outline" size={20} color="#fff" />
+                      <Text style={[styles.retryButtonText, { color: "#fff" }]}>Create Company</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </>
+            ) : (
+              // Company exists - show code
+              <>
+                <View style={styles.codeBox}>
+                  {codeLoading ? (
+                    <>
+                      <ActivityIndicator size="small" color="#007AFF" />
+                      <Text style={styles.loadingText}>Loading code...</Text>
+                    </>
+                  ) : companyCode && companyCode !== "Not found" && companyCode !== "Error loading" ? (
+                    <>
+                      <Ionicons name="key-outline" size={24} color="#007AFF" />
+                      <Text style={styles.codeText}>{companyCode}</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Ionicons name="alert-circle-outline" size={24} color="#FF9500" />
+                      <Text style={styles.errorText}>{companyCode || "No code found"}</Text>
+                    </>
+                  )}
+                </View>
 
-            <View style={styles.codeActions}>
-              <TouchableOpacity
-                style={[styles.codeButton, !companyCode && styles.buttonDisabled]}
-                onPress={handleCopyCode}
-                disabled={!companyCode}
-              >
-                <Ionicons name="copy-outline" size={20} color="#007AFF" />
-                <Text style={styles.codeButtonText}>Copy</Text>
-              </TouchableOpacity>
+                {!codeLoading && (!companyCode || companyCode === "Not found" || companyCode === "Error loading") && (
+                  <TouchableOpacity
+                    style={styles.retryButton}
+                    onPress={() => loadCompanyData()}
+                  >
+                    <Ionicons name="refresh-outline" size={20} color="#007AFF" />
+                    <Text style={styles.retryButtonText}>Retry</Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
 
-              <TouchableOpacity
-                style={[styles.codeButton, !companyCode && styles.buttonDisabled]}
-                onPress={handleRegenerateCode}
-                disabled={!companyCode}
-              >
-                <Ionicons name="refresh-outline" size={20} color="#FF9500" />
-                <Text style={[styles.codeButtonText, { color: "#FF9500" }]}>
-                  Regenerate
-                </Text>
-              </TouchableOpacity>
-            </View>
+            {companyId && companyCode && companyCode !== "Not found" && companyCode !== "Error loading" && (
+              <View style={styles.codeActions}>
+                <TouchableOpacity
+                  style={[styles.codeButton, codeLoading && styles.buttonDisabled]}
+                  onPress={handleCopyCode}
+                  disabled={codeLoading}
+                >
+                  <Ionicons name="copy-outline" size={20} color="#007AFF" />
+                  <Text style={styles.codeButtonText}>Copy</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.codeButton, codeLoading && styles.buttonDisabled]}
+                  onPress={handleRegenerateCode}
+                  disabled={codeLoading}
+                >
+                  <Ionicons name="refresh-outline" size={20} color="#FF9500" />
+                  <Text style={[styles.codeButtonText, { color: "#FF9500" }]}>
+                    Regenerate
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </View>
 
@@ -416,7 +539,6 @@ export default function CompanySettingsScreen() {
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
-    </>
   );
 }
 
@@ -438,11 +560,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginBottom: 20,
     color: "#000",
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
   },
   section: {
     backgroundColor: "#fff",
@@ -475,6 +592,33 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#007AFF",
     letterSpacing: 2,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: "#666",
+    marginLeft: 8,
+  },
+  errorText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#FF9500",
+  },
+  retryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    marginBottom: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#007AFF",
+    backgroundColor: "#fff",
+  },
+  retryButtonText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#007AFF",
   },
   codeActions: {
     flexDirection: "row",

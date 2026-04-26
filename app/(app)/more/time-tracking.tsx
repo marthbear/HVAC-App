@@ -222,7 +222,7 @@ export default function TimeTrackingScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]} edges={["bottom", "left", "right"]}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.primary} />
           <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
@@ -238,13 +238,11 @@ export default function TimeTrackingScreen() {
   ).size;
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]} edges={["bottom", "left", "right"]}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
       >
-        <Text style={[styles.header, { color: theme.text }]}>Time Tracking</Text>
-
         {/* Current Status */}
         <View style={[styles.statusCard, { backgroundColor: theme.surface }]}>
           <View style={styles.statusHeader}>

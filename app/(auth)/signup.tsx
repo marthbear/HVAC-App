@@ -28,46 +28,53 @@ export default function SignupScreen() {
   });
 
   const handleSignup = async () => {
+    console.log("handleSignup called with:", formData);
+
     // Validate form
     if (!formData.name.trim()) {
-      Alert.alert("Error", "Please enter your name");
+      Alert.alert("Validation Error", "Please enter your name");
       return;
     }
 
     if (!formData.email.trim()) {
-      Alert.alert("Error", "Please enter your email");
+      Alert.alert("Validation Error", "Please enter your email");
       return;
     }
 
     if (formData.role === "employee" && !formData.companyCode.trim()) {
-      Alert.alert("Error", "Please enter your company code");
+      Alert.alert("Validation Error", "Please enter your company code");
       return;
     }
 
     if (!formData.password) {
-      Alert.alert("Error", "Please enter a password");
+      Alert.alert("Validation Error", "Please enter a password");
       return;
     }
 
     if (formData.password.length < 6) {
-      Alert.alert("Error", "Password must be at least 6 characters");
+      Alert.alert("Validation Error", "Password must be at least 6 characters");
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      Alert.alert("Error", "Passwords do not match");
+      Alert.alert("Validation Error", "Passwords do not match");
       return;
     }
+
+    console.log("All validations passed, starting signup...");
+    console.log("Form data:", JSON.stringify(formData, null, 2));
 
     setLoading(true);
     try {
       // Create account with Firebase
+      console.log("Calling signup with:", formData.email, formData.role, formData.companyCode);
       await signup(
         formData.email,
         formData.password,
         formData.role,
         formData.role === "employee" ? formData.companyCode : undefined
       );
+      console.log("Signup successful!");
 
       // Show success message
       setShowSuccess(true);
@@ -91,7 +98,7 @@ export default function SignupScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       <View style={styles.content}>
         {/* Header */}
         <Text style={styles.title}>Create Account</Text>

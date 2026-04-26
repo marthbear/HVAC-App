@@ -132,13 +132,11 @@ export default function MyScheduleScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={["bottom", "left", "right"]}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
       >
-        <Text style={styles.header}>My Schedule</Text>
-
         {/* Filter Tabs */}
         <View style={styles.filterContainer}>
           <TouchableOpacity

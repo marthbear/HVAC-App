@@ -5,8 +5,11 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Pressable,
   Alert,
   ActivityIndicator,
+  Platform,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -21,7 +24,6 @@ import {
 } from "firebase/firestore";
 import { db } from "../../../src/config/firebase";
 import { useAuth } from "../../../src/auth/AuthContext";
-import { Stack } from "expo-router";
 
 type PendingEmployee = {
   id: string;
@@ -34,6 +36,12 @@ export default function PendingEmployeesScreen() {
   const [pendingEmployees, setPendingEmployees] = useState<PendingEmployee[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{
+    visible: boolean;
+    type: "approve" | "reject";
+    employeeId: string;
+    email: string;
+  } | null>(null);
 
   useEffect(() => {
     loadPendingEmployees();
@@ -81,66 +89,104 @@ export default function PendingEmployeesScreen() {
     }
   };
 
-  const handleApprove = async (employeeId: string, email: string) => {
-    Alert.alert(
-      "Approve Employee",
-      `Are you sure you want to approve ${email}?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Approve",
-          onPress: async () => {
-            setActionLoading(employeeId);
-            try {
-              const userRef = doc(db, "users", employeeId);
-              await updateDoc(userRef, {
-                status: "active",
-              });
-
-              Alert.alert("Success", `${email} has been approved`);
-              // Reload the list
-              await loadPendingEmployees();
-            } catch (error) {
-              console.error("Error approving employee:", error);
-              Alert.alert("Error", "Failed to approve employee");
-            } finally {
-              setActionLoading(null);
-            }
+  const handleApprove = (employeeId: string, email: string) => {
+    console.log("handleApprove called for:", employeeId, email);
+    if (Platform.OS === "web") {
+      setConfirmModal({ visible: true, type: "approve", employeeId, email });
+    } else {
+      Alert.alert(
+        "Approve Employee",
+        `Are you sure you want to approve ${email}?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Approve",
+            onPress: () => confirmApprove(employeeId, email),
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
   };
 
-  const handleReject = async (employeeId: string, email: string) => {
-    Alert.alert(
-      "Reject Employee",
-      `Are you sure you want to reject ${email}? Their account will be deleted.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Reject",
-          style: "destructive",
-          onPress: async () => {
-            setActionLoading(employeeId);
-            try {
-              // Delete the user document
-              const userRef = doc(db, "users", employeeId);
-              await deleteDoc(userRef);
+  const confirmApprove = async (employeeId: string, email: string) => {
+    setConfirmModal(null);
+    setActionLoading(employeeId);
+    try {
+      console.log("Approving employee:", employeeId);
+      const userRef = doc(db, "users", employeeId);
+      console.log("Updating document...");
+      await updateDoc(userRef, {
+        status: "active",
+      });
+      console.log("Document updated successfully");
 
-              Alert.alert("Rejected", `${email} has been rejected`);
-              // Reload the list
-              await loadPendingEmployees();
-            } catch (error) {
-              console.error("Error rejecting employee:", error);
-              Alert.alert("Error", "Failed to reject employee");
-            } finally {
-              setActionLoading(null);
-            }
+      if (Platform.OS === "web") {
+        window.alert(`${email} has been approved`);
+      } else {
+        Alert.alert("Success", `${email} has been approved`);
+      }
+      // Reload the list
+      await loadPendingEmployees();
+    } catch (error: any) {
+      console.error("Error approving employee:", error);
+      console.error("Error code:", error?.code);
+      console.error("Error message:", error?.message);
+      const errorMsg = error?.message || "Failed to approve employee";
+      if (Platform.OS === "web") {
+        window.alert(`Failed to approve employee: ${errorMsg}`);
+      } else {
+        Alert.alert("Error", `Failed to approve employee: ${errorMsg}`);
+      }
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleReject = (employeeId: string, email: string) => {
+    console.log("handleReject called for:", employeeId, email);
+    if (Platform.OS === "web") {
+      setConfirmModal({ visible: true, type: "reject", employeeId, email });
+    } else {
+      Alert.alert(
+        "Reject Employee",
+        `Are you sure you want to reject ${email}? Their account will be deleted.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Reject",
+            style: "destructive",
+            onPress: () => confirmReject(employeeId, email),
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
+  };
+
+  const confirmReject = async (employeeId: string, email: string) => {
+    setConfirmModal(null);
+    setActionLoading(employeeId);
+    try {
+      // Delete the user document
+      const userRef = doc(db, "users", employeeId);
+      await deleteDoc(userRef);
+
+      if (Platform.OS === "web") {
+        window.alert(`${email} has been rejected`);
+      } else {
+        Alert.alert("Rejected", `${email} has been rejected`);
+      }
+      // Reload the list
+      await loadPendingEmployees();
+    } catch (error) {
+      console.error("Error rejecting employee:", error);
+      if (Platform.OS === "web") {
+        window.alert("Failed to reject employee");
+      } else {
+        Alert.alert("Error", "Failed to reject employee");
+      }
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -170,28 +216,22 @@ export default function PendingEmployeesScreen() {
 
   if (loading) {
     return (
-      <>
-        <Stack.Screen options={{ title: "Pending Employees" }} />
-        <SafeAreaView style={styles.safeArea}>
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#007AFF" />
-            <Text style={styles.loadingText}>Loading pending employees...</Text>
-          </View>
-        </SafeAreaView>
-      </>
+      <SafeAreaView style={styles.safeArea} edges={["bottom", "left", "right"]}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.loadingText}>Loading pending employees...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <>
-      <Stack.Screen options={{ title: "Pending Employees" }} />
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView
-          style={styles.container}
-          contentContainerStyle={styles.scrollContent}
-        >
-          <Text style={styles.header}>Pending Employees</Text>
-
+    <SafeAreaView style={styles.safeArea} edges={["bottom", "left", "right"]}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
         {pendingEmployees.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="checkmark-circle-outline" size={64} color="#ccc" />
@@ -226,13 +266,17 @@ export default function PendingEmployeesScreen() {
                 </View>
 
                 <View style={styles.actionsRow}>
-                  <TouchableOpacity
-                    style={[
+                  <Pressable
+                    style={({ pressed }) => [
                       styles.actionButton,
                       styles.rejectButton,
                       actionLoading === employee.id && styles.buttonDisabled,
+                      pressed && { opacity: 0.7 },
                     ]}
-                    onPress={() => handleReject(employee.id, employee.email)}
+                    onPress={() => {
+                      console.log("Reject button pressed");
+                      handleReject(employee.id, employee.email);
+                    }}
                     disabled={actionLoading === employee.id}
                   >
                     {actionLoading === employee.id ? (
@@ -243,15 +287,19 @@ export default function PendingEmployeesScreen() {
                         <Text style={styles.rejectButtonText}>Reject</Text>
                       </>
                     )}
-                  </TouchableOpacity>
+                  </Pressable>
 
-                  <TouchableOpacity
-                    style={[
+                  <Pressable
+                    style={({ pressed }) => [
                       styles.actionButton,
                       styles.approveButton,
                       actionLoading === employee.id && styles.buttonDisabled,
+                      pressed && { opacity: 0.7 },
                     ]}
-                    onPress={() => handleApprove(employee.id, employee.email)}
+                    onPress={() => {
+                      console.log("Approve button pressed");
+                      handleApprove(employee.id, employee.email);
+                    }}
                     disabled={actionLoading === employee.id}
                   >
                     {actionLoading === employee.id ? (
@@ -266,15 +314,64 @@ export default function PendingEmployeesScreen() {
                         <Text style={styles.approveButtonText}>Approve</Text>
                       </>
                     )}
-                  </TouchableOpacity>
+                  </Pressable>
                 </View>
               </View>
             ))}
           </View>
         )}
       </ScrollView>
+
+      {/* Confirmation Modal for Web */}
+      {confirmModal && (
+        <Modal
+          visible={confirmModal.visible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setConfirmModal(null)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>
+                {confirmModal.type === "approve" ? "Approve Employee" : "Reject Employee"}
+              </Text>
+              <Text style={styles.modalMessage}>
+                {confirmModal.type === "approve"
+                  ? `Are you sure you want to approve ${confirmModal.email}?`
+                  : `Are you sure you want to reject ${confirmModal.email}? Their account will be deleted.`}
+              </Text>
+              <View style={styles.modalButtons}>
+                <Pressable
+                  style={[styles.modalButton, styles.modalCancelButton]}
+                  onPress={() => setConfirmModal(null)}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  style={[
+                    styles.modalButton,
+                    confirmModal.type === "approve"
+                      ? styles.modalApproveButton
+                      : styles.modalRejectButton,
+                  ]}
+                  onPress={() => {
+                    if (confirmModal.type === "approve") {
+                      confirmApprove(confirmModal.employeeId, confirmModal.email);
+                    } else {
+                      confirmReject(confirmModal.employeeId, confirmModal.email);
+                    }
+                  }}
+                >
+                  <Text style={styles.modalActionText}>
+                    {confirmModal.type === "approve" ? "Approve" : "Reject"}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
     </SafeAreaView>
-    </>
   );
 }
 
@@ -414,5 +511,63 @@ const styles = StyleSheet.create({
     color: "#666",
     textAlign: "center",
     lineHeight: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 24,
+    width: "100%",
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#000",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalCancelButton: {
+    backgroundColor: "#f0f0f0",
+  },
+  modalCancelText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#666",
+  },
+  modalApproveButton: {
+    backgroundColor: "#34C759",
+  },
+  modalRejectButton: {
+    backgroundColor: "#FF3B30",
+  },
+  modalActionText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#fff",
   },
 });

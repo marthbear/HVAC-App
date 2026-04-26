@@ -28,6 +28,12 @@ export default function MoreScreen() {
       onPress: () => router.push("/(app)/more/my-profile"),
     },
     {
+      icon: "business-outline",
+      title: "My Company",
+      subtitle: "View your company information",
+      onPress: () => router.push("/(app)/more/my-company"),
+    },
+    {
       icon: "time-outline",
       title: "Time Tracking",
       subtitle: "View your hours and timesheet",

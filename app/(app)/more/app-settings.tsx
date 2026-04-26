@@ -83,6 +83,7 @@ export default function AppSettingsScreen() {
   return (
     <SafeAreaView
       style={[styles.safeArea, { backgroundColor: theme.background }]}
+      edges={["bottom", "left", "right"]}
     >
       <ScrollView
         style={styles.container}

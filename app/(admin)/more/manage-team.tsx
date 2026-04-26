@@ -99,7 +99,7 @@ export default function ManageTeamScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={["bottom", "left", "right"]}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#007AFF" />
           <Text style={styles.loadingText}>Loading employees...</Text>
@@ -109,7 +109,7 @@ export default function ManageTeamScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={["bottom", "left", "right"]}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
@@ -117,7 +117,6 @@ export default function ManageTeamScreen() {
         {/* Header with Add Button */}
         <View style={styles.headerRow}>
           <View>
-            <Text style={styles.header}>Team Members</Text>
             <Text style={styles.subheader}>
               {filteredEmployees.length} {filteredEmployees.length === 1 ? "employee" : "employees"}
             </Text>

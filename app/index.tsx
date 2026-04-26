@@ -7,7 +7,7 @@ import { useAuth } from "../src/auth/AuthContext";
  * Controls where users land based on auth state.
  */
 export default function Index() {
-  const { isLoggedIn, user, isLoading } = useAuth();
+  const { isLoggedIn, user, isLoading, status } = useAuth();
 
   if (isLoading) {
     return null;
@@ -18,7 +18,12 @@ export default function Index() {
     return <Redirect href="/login" />;
   }
 
-  // Employee goes to employee dashboard
+  // Pending employees go to pending approval screen
+  if (user?.role === "employee" && status === "pending") {
+    return <Redirect href="/(app)/pending-approval" />;
+  }
+
+  // Active employee goes to employee dashboard
   if (user?.role === "employee") {
     return <Redirect href="/(app)/dashboard" />;
   }

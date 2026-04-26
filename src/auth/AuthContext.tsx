@@ -22,6 +22,7 @@ type UserDocument = {
   email: string;
   role: UserRole;
   companyId?: string;
+  companyCode?: string; // Stored on admin users for quick access
   status: "active" | "pending";
   createdAt: string;
 };
@@ -66,6 +67,7 @@ type AuthContextType = {
 
   // Company and status
   companyId?: string;
+  companyCode?: string;
   status?: "active" | "pending";
 };
 
@@ -79,6 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [companyId, setCompanyId] = useState<string | undefined>(undefined);
+  const [companyCode, setCompanyCode] = useState<string | undefined>(undefined);
   const [status, setStatus] = useState<"active" | "pending" | undefined>(undefined);
 
   /**
@@ -91,6 +94,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
           const userData = userDoc.data() as UserDocument | undefined;
+          console.log("AuthContext - User data loaded:", {
+            companyId: userData?.companyId,
+            companyCode: userData?.companyCode,
+            role: userData?.role,
+          });
 
           const authUser: AuthUser = {
             id: firebaseUser.uid,
@@ -100,17 +108,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           setUser(authUser);
           setCompanyId(userData?.companyId);
+          setCompanyCode(userData?.companyCode);
           setStatus(userData?.status || "active");
         } catch (error) {
           console.error("Error fetching user data:", error);
           setUser(null);
           setCompanyId(undefined);
+          setCompanyCode(undefined);
           setStatus(undefined);
         }
       } else {
         // User is signed out
         setUser(null);
         setCompanyId(undefined);
+        setCompanyCode(undefined);
         setStatus(undefined);
       }
       setIsLoading(false);
@@ -200,11 +211,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         console.log("Company created:", companyId, "with code:", newCompanyCode);
 
-        // Create admin user with company
+        // Create admin user with company and code for quick access
         await setDoc(doc(db, "users", userId), {
           email,
           role,
           companyId,
+          companyCode: newCompanyCode,
           status: "active",
           createdAt: new Date().toISOString(),
         } as UserDocument);
@@ -212,14 +224,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log("Admin user document created");
       } else if (role === "employee") {
         // Employee: Validate company code and create pending user
+        console.log("Employee signup - validating company code:", companyCode);
         if (!companyCode) {
           throw new Error("Company code is required for employees");
         }
 
         // Find company by code
+        console.log("Searching for company with code:", companyCode.trim().toUpperCase());
         const companiesRef = collection(db, "companies");
         const q = query(companiesRef, where("companyCode", "==", companyCode.trim().toUpperCase()));
         const querySnapshot = await getDocs(q);
+        console.log("Query complete, found:", querySnapshot.size, "companies");
 
         if (querySnapshot.empty) {
           throw new Error("Invalid company code. Please check with your administrator.");
@@ -227,8 +242,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const companyDoc = querySnapshot.docs[0];
         const companyId = companyDoc.id;
+        console.log("Found company:", companyId);
 
         // Create employee user with pending status
+        console.log("Creating employee user document...");
         await setDoc(doc(db, "users", userId), {
           email,
           role,
@@ -236,6 +253,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           status: "pending",
           createdAt: new Date().toISOString(),
         } as UserDocument);
+        console.log("Employee user document created");
       } else {
         // Customer: No company association needed
         await setDoc(doc(db, "users", userId), {
@@ -304,6 +322,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Company and status
         companyId,
+        companyCode,
         status,
       }}
     >
